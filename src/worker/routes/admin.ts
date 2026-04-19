@@ -1,6 +1,4 @@
-import { getVehicleCategories } from "../connectors/cabme";
-import { listTickets } from "../connectors/zpro";
-import type { Context } from "hono";
+// Arquivo removido. Projeto mínimo não precisa de routes/admin.ts.
 
 type CallResult = {
     statusCode: number | null;

@@ -5,3 +5,10 @@ dist/
 .dev.vars
 .DS_Store
 .wrangler/
+# Legado
+src/worker/
+src/connectors/
+src/triage/
+src/logger.ts
+src/server.ts
+src/config.ts
