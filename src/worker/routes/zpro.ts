@@ -1,262 +1,118 @@
+
+// Esqueleto inicial para ZPRO: Kanban/CRM, Etiquetas, Clientes, Cards, Integração IA
+
 import type { Context } from "hono";
-import type { WorkerEnv } from "../config";
-import { handleTriageMessage, getSessionState, setSessionState, type TriageSession } from "../../triage/flow";
-import { cabmeCreateOS } from "../connectors/cabme";
 
-type IncomingExtracted = {
-    number: string | null;
-    message: string | null;
-    externalKey: string | null;
+// Modelos básicos (pode migrar para DB ou KV depois)
+type CardStatus = "novo" | "em_atendimento" | "aguardando" | "finalizado";
+type Etiqueta = { id: string; nome: string; cor: string };
+type Cliente = { id: string; nome: string; contato: string };
+type Card = {
+    id: string;
+    titulo: string;
+    descricao: string;
+    status: CardStatus;
+    cliente: Cliente;
+    responsavel?: string;
+    prioridade?: string;
+    etiquetas: Etiqueta[];
+    historico: string[];
+    criadoEm: string;
+    atualizadoEm: string;
 };
 
-type DedupStored = {
-    protocol?: string;
-    osId?: string;
-};
+// Mock storage (substituir por DB/KV)
+const cards: Card[] = [];
+const etiquetas: Etiqueta[] = [];
+const clientes: Cliente[] = [];
 
-function asString(value: unknown) {
-    return typeof value === "string" ? value : null;
-}
+// Rotas RESTful completas
+import { nanoid } from "nanoid";
 
-function extractIncoming(body: Record<string, unknown>): IncomingExtracted {
-    const number =
-        asString(body.number) ??
-        asString(body.phone) ??
-        asString(body.from) ??
-        asString((body.sender as { phone?: unknown } | undefined)?.phone) ??
-        asString((body.contact as { phone?: unknown } | undefined)?.phone) ??
-        null;
-
-    const message =
-        asString(body.message) ??
-        asString(body.text) ??
-        asString((body.text as { message?: unknown } | undefined)?.message) ??
-        asString(body.body) ??
-        asString((body.messages as Array<{ text?: { body?: unknown }; body?: unknown }> | undefined)?.[0]?.text?.body) ??
-        asString((body.messages as Array<{ body?: unknown }> | undefined)?.[0]?.body) ??
-        null;
-
-    const externalKey =
-        asString(body.externalKey) ??
-        asString(body.external_key) ??
-        asString(body.ticketId) ??
-        asString(body.id) ??
-        asString(body.messageId) ??
-        null;
-
-    return { number, message, externalKey };
-}
-
-async function fetchWithTimeout(input: RequestInfo, init: RequestInit, timeoutMs: number) {
-    const controller = new AbortController();
-    const timeout = setTimeout(() => controller.abort(), timeoutMs);
-    try {
-        return await fetch(input, { ...init, signal: controller.signal });
-    } finally {
-        clearTimeout(timeout);
+export async function zproHandler(c: Context) {
+    const { req } = c;
+    // Listar todos os cards
+    if (req.method === "GET" && req.path === "/cards") {
+        return c.json(cards);
     }
-}
-
-function getZproConfig(env: WorkerEnv) {
-    const baseUrl = env.ZPRO_BASE_URL;
-    const apiId = env.ZPRO_API_ID;
-    const token = env.ZPRO_TOKEN;
-    if (!baseUrl || !apiId || !token) {
-        return null;
-    }
-    const timeoutMs = env.REQUEST_TIMEOUT_MS ? Number(env.REQUEST_TIMEOUT_MS) : 15000;
-    return { baseUrl, apiId, token, timeoutMs };
-}
-
-async function sendZproMessage(
-    config: ReturnType<typeof getZproConfig>,
-    number: string,
-    body: string,
-    externalKey: string
-) {
-    const url = new URL(`/v2/api/external/${config.apiId}`, config.baseUrl);
-
-    return fetchWithTimeout(
-        url.toString(),
-        {
-            method: "POST",
-            headers: {
-                Authorization: `Bearer ${config.token}`,
-                "Content-Type": "application/json"
-            },
-            body: JSON.stringify({
-                body,
-                number,
-                externalKey,
-                isClosed: false
-            })
-        },
-        config.timeoutMs
-    ).catch(() => null);
-}
-
-function formatSuccessMessage(protocol: string, data: { serviceType?: string; location?: string; plate?: string }) {
-    return `✅ OS aberta!\n📌 Protocolo: ${protocol}\n🧰 Serviço: ${data.serviceType ?? "-"}\n📍 Local: ${data.location ?? "-"}\n🚗 Placa: ${data.plate ?? "-"}`;
-}
-
-export async function zproIncomingHandler(
-    c: Context<{ Bindings: WorkerEnv; Variables: { requestId: string } }>
-) {
-    const requestId = c.get("requestId");
-    const body = await c.req.json().catch(() => null);
-
-    if (!body || typeof body !== "object") {
-        return c.json({ error: "invalid_body", requestId }, 400);
-    }
-
-    const extracted = extractIncoming(body as Record<string, unknown>);
-
-    if (!extracted.number || !extracted.message) {
-        return c.json({ error: "missing_fields", requestId }, 400);
-    }
-
-    const externalKey = extracted.externalKey ?? crypto.randomUUID();
-
-    if (c.env.EVENT_DEDUP) {
-        const cached = await c.env.EVENT_DEDUP.get(`session:${externalKey}`, "json");
-        if (cached && typeof cached === "object") {
-            setSessionState(externalKey, cached as TriageSession);
+    // Criar novo card
+    if (req.method === "POST" && req.path === "/cards") {
+        const body = await req.json();
+        if (!body.titulo || !body.descricao || !body.status || !body.cliente) {
+            return c.json({ error: "Campos obrigatórios: titulo, descricao, status, cliente" }, 400);
         }
+        const clienteObj = clientes.find(c => c.id === body.cliente) || { id: body.cliente, nome: body.cliente, contato: "" };
+        const novoCard: Card = {
+            id: nanoid(),
+            titulo: body.titulo,
+            descricao: body.descricao,
+            status: body.status,
+            cliente: clienteObj,
+            responsavel: body.responsavel || "",
+            prioridade: body.prioridade || "",
+            etiquetas: (body.etiquetas || []).map((e: string) => etiquetas.find(et => et.id === e) || { id: e, nome: e, cor: "#888" }),
+            historico: [
+                `Criado em ${new Date().toISOString()} por ${body.responsavel || "sistema"}`
+            ],
+            criadoEm: new Date().toISOString(),
+            atualizadoEm: new Date().toISOString()
+        };
+        cards.push(novoCard);
+        return c.json(novoCard);
     }
-
-    const triage = handleTriageMessage(externalKey, extracted.message, { phone: extracted.number });
-    const config = getZproConfig(c.env);
-    if (!config) {
-        return c.json({ error: "config_error", requestId }, 500);
+    // Atualizar card (status, responsavel, etc)
+    if (req.method === "PATCH" && req.path.startsWith("/cards/")) {
+        const id = req.path.split("/")[2];
+        const idx = cards.findIndex(c => c.id === id);
+        if (idx === -1) return c.json({ error: "Card não encontrado" }, 404);
+        const body = await req.json();
+        if (body.status) cards[idx].status = body.status;
+        if (body.responsavel) cards[idx].responsavel = body.responsavel;
+        if (body.prioridade) cards[idx].prioridade = body.prioridade;
+        if (body.etiquetas) cards[idx].etiquetas = body.etiquetas.map((e: string) => etiquetas.find(et => et.id === e) || { id: e, nome: e, cor: "#888" });
+        cards[idx].historico.push(`Atualizado em ${new Date().toISOString()} (${JSON.stringify(body)})`);
+        cards[idx].atualizadoEm = new Date().toISOString();
+        return c.json(cards[idx]);
     }
-
-    if (c.env.EVENT_DEDUP) {
-        const session = getSessionState(externalKey);
-        if (session) {
-            await c.env.EVENT_DEDUP.put(`session:${externalKey}`,
-                JSON.stringify(session),
-                { expirationTtl: 86400 }
-            );
-        }
+    // Remover card
+    if (req.method === "DELETE" && req.path.startsWith("/cards/")) {
+        const id = req.path.split("/")[2];
+        const idx = cards.findIndex(c => c.id === id);
+        if (idx === -1) return c.json({ error: "Card não encontrado" }, 404);
+        cards.splice(idx, 1);
+        return c.json({ ok: true });
     }
-
-    if (triage.step === "READY_TO_OPEN_OS" && triage.data.statusFinanceiro === "ADIMPLENTE") {
-        try {
-            const dedup = c.env.EVENT_DEDUP;
-            if (!dedup) {
-                return c.json({ error: "dedup_missing", requestId }, 500);
-            }
-
-            const cached = await dedup.get<DedupStored>(externalKey, "json");
-            const cachedProtocol = cached?.protocol ?? cached?.osId ?? null;
-            if (cachedProtocol) {
-                const cachedMessage = formatSuccessMessage(cachedProtocol, triage.data);
-                const cachedResponse = await sendZproMessage(config, extracted.number, cachedMessage, externalKey);
-                if (!cachedResponse || !cachedResponse.ok) {
-                    return c.json({ error: "zpro_send_failed", requestId }, 502);
-                }
-                return c.json({ ok: true, step: triage.step, requestId, protocol: cachedProtocol, dedup: true });
-            }
-
-            const cabmeResult = await cabmeCreateOS(c.env, {
-                name: triage.data.name ?? "",
-                plate: triage.data.plate ?? "",
-                location: triage.data.location ?? "",
-                serviceType: triage.data.serviceType ?? "",
-                phone: triage.data.phone ?? extracted.number
-            });
-
-            if (!cabmeResult.ok || !cabmeResult.protocol) {
-                const fallbackMessage = "⚠️ Não consegui abrir a OS agora. Vou te direcionar para um atendente.";
-                const fallbackResponse = await sendZproMessage(config, extracted.number, fallbackMessage, externalKey);
-                if (!fallbackResponse || !fallbackResponse.ok) {
-                    return c.json({ error: "zpro_send_failed", requestId }, 502);
-                }
-                const cabmeBody = typeof cabmeResult.errorBody === "string" ? cabmeResult.errorBody : "";
-                const debugSnippet = cabmeBody.slice(0, 200);
-
-                if (cabmeResult.status === 403) {
-                    if (cabmeBody.includes("error code: 1003")) {
-                        return c.json(
-                            {
-                                ok: false,
-                                error: "CF_1003",
-                                message: "403 (Cloudflare 1003): o Cloudflare está bloqueando a chamada do Worker ao CabMe. Verifique se CABME_BASE_URL está usando domínio (https://console.mackflow.com.br/api/) e não IP, e se não há regra/WAF bloqueando Workers.",
-                                next: "Confirme CABME_BASE_URL e libere o Worker nas regras do Cloudflare (WAF/Bot/Firewall), depois rode /cabme/ping de novo.",
-                                baseUsed: c.env.CABME_ORIGIN_BASE_URL || c.env.CABME_BASE_URL,
-                                status: cabmeResult.status,
-                                debugSnippet,
-                                requestId
-                            },
-                            403
-                        );
-                    }
-
-                    return c.json(
-                        {
-                            ok: false,
-                            error: "CABME_AUTH",
-                            message: "403: CabMe recusou autenticação. Isso normalmente indica CABME_ACCESSTOKEN inválido/inativo na tabela (access_tokens/users_access).",
-                            next: "Atualize o secret CABME_ACCESSTOKEN com um token ativo do CabMe e teste /cabme/ping.",
-                            baseUsed: c.env.CABME_ORIGIN_BASE_URL || c.env.CABME_BASE_URL,
-                            status: cabmeResult.status,
-                            debugSnippet,
-                            requestId
-                        },
-                        403
-                    );
-                }
-
-                return c.json(
-                    {
-                        error: "cabme_create_failed",
-                        requestId,
-                        status: cabmeResult.status ?? null,
-                        debugSnippet
-                    },
-                    502
-                );
-            }
-
-            await dedup.put(
-                externalKey,
-                JSON.stringify({ protocol: cabmeResult.protocol, osId: cabmeResult.osId }),
-                { expirationTtl: 86400 }
-            );
-
-            const successMessage = formatSuccessMessage(cabmeResult.protocol, triage.data);
-            const successResponse = await sendZproMessage(config, extracted.number, successMessage, externalKey);
-            if (!successResponse || !successResponse.ok) {
-                return c.json({ error: "zpro_send_failed", requestId }, 502);
-            }
-
-            return c.json({ ok: true, step: triage.step, requestId, protocol: cabmeResult.protocol });
-        } catch (error) {
-            const detail = error instanceof Error ? error.message : "unknown_error";
-            console.log(
-                JSON.stringify({
-                    level: "error",
-                    msg: "cabme_flow_error",
-                    requestId,
-                    error: detail
-                })
-            );
-            return c.json({ error: "cabme_flow_error", detail, requestId }, 502);
-        }
+    // Listar etiquetas
+    if (req.method === "GET" && req.path === "/etiquetas") {
+        return c.json(etiquetas);
     }
-
-    if (triage.data.statusFinanceiro === "INADIMPLENTE") {
-        const refusalResponse = await sendZproMessage(config, extracted.number, triage.reply, externalKey);
-        if (!refusalResponse || !refusalResponse.ok) {
-            return c.json({ error: "zpro_send_failed", requestId }, 502);
-        }
-        return c.json({ ok: true, step: triage.step, requestId });
+    // Criar etiqueta
+    if (req.method === "POST" && req.path === "/etiquetas") {
+        const body = await req.json();
+        if (!body.nome || !body.cor) return c.json({ error: "Campos obrigatórios: nome, cor" }, 400);
+        const nova: Etiqueta = { id: nanoid(), nome: body.nome, cor: body.cor };
+        etiquetas.push(nova);
+        return c.json(nova);
     }
-
-    const response = await sendZproMessage(config, extracted.number, triage.reply, externalKey);
-    if (!response || !response.ok) {
-        return c.json({ error: "zpro_send_failed", requestId }, 502);
+    // Listar clientes
+    if (req.method === "GET" && req.path === "/clientes") {
+        return c.json(clientes);
     }
-
-    return c.json({ ok: true, step: triage.step, requestId });
+    // Criar cliente
+    if (req.method === "POST" && req.path === "/clientes") {
+        const body = await req.json();
+        if (!body.nome || !body.contato) return c.json({ error: "Campos obrigatórios: nome, contato" }, 400);
+        const novo: Cliente = { id: nanoid(), nome: body.nome, contato: body.contato };
+        clientes.push(novo);
+        return c.json(novo);
+    }
+    // Integração IA (mock GPT)
+    if (req.method === "POST" && req.path === "/ia/sugerir") {
+        const body = await req.json();
+        // Aqui você pode integrar com GPT real (OpenAI API, etc)
+        // Exemplo mock:
+        const resposta = `Sugestão IA para: ${body.pergunta || "(sem pergunta)"}`;
+        return c.json({ resposta });
+    }
+    return c.json({ error: "not_found" }, 404);
 }

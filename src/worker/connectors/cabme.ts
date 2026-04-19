@@ -68,6 +68,7 @@ export type CabmeCreateOSResult = {
     protocol?: string;
     osId?: string;
     errorBody?: string;
+    responseBody?: string;
 };
 
 function hasV1Segment(value: string) {
@@ -206,6 +207,7 @@ export async function cabmeCreateOS(env: WorkerEnv, payload: CabmeCreateOSPayloa
         status: response.status,
         protocol,
         osId,
-        errorBody: response.ok ? undefined : rawText
+        errorBody: response.ok ? undefined : rawText,
+        responseBody: rawText
     };
 }
