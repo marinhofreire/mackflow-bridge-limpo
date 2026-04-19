@@ -1,9 +1,8 @@
 import type { Context } from "hono";
-import type { WorkerEnv } from "../config";
 import { handleTriageMessage, getSessionState, setSessionState, type TriageSession } from "../../triage/flow";
 
 export async function triageHandler(
-    c: Context<{ Bindings: WorkerEnv; Variables: { requestId: string } }>
+    c: Context<{ Bindings: any; Variables: { requestId: string } }>
 ) {
     const body = await c.req.json().catch(() => null);
 

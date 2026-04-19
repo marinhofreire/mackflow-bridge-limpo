@@ -1,4 +1,4 @@
-import { getConfig, type WorkerEnv } from "../config";
+// Cloudflare Worker puro: funções utilitárias ZPRO
 
 async function fetchWithTimeout(input: RequestInfo, init: RequestInit, timeoutMs: number) {
     const controller = new AbortController();
@@ -11,9 +11,8 @@ async function fetchWithTimeout(input: RequestInfo, init: RequestInit, timeoutMs
     }
 }
 
-export async function listTickets(env: WorkerEnv) {
-    const config = getConfig(env);
-    const url = new URL(`/v2/api/external/${config.zpro.apiId}/listTickets`, config.zpro.baseUrl);
+export async function listTickets(env: any) {
+    const url = new URL(`/v2/api/external/${env.ZPRO_API_ID}/listTickets`, env.ZPRO_BASE_URL);
     url.searchParams.set("pageNumber", "1");
     url.searchParams.set("status", "open");
 
@@ -21,9 +20,37 @@ export async function listTickets(env: WorkerEnv) {
         url.toString(),
         {
             headers: {
-                Authorization: `Bearer ${config.zpro.token}`
+                Authorization: `Bearer ${env.ZPRO_TOKEN}`
             }
         },
-        config.timeoutMs
+        5000 // timeout fixo
     );
+}
+
+
+async function fetchWithTimeout(input: RequestInfo, init: RequestInit, timeoutMs: number) {
+    const controller = new AbortController();
+    const timeout = setTimeout(() => controller.abort(), timeoutMs);
+    try {
+        const response = await fetch(input, { ...init, signal: controller.signal });
+        return response;
+    } finally {
+        clearTimeout(timeout);
+    }
+}
+
+// Exemplo: ajuste para env puro
+const url = new URL(`/v2/api/external/${env.ZPRO_API_ID}/listTickets`, env.ZPRO_BASE_URL);
+url.searchParams.set("pageNumber", "1");
+url.searchParams.set("status", "open");
+
+return fetchWithTimeout(
+    url.toString(),
+    {
+        headers: {
+            Authorization: `Bearer ${env.ZPRO_TOKEN}`
+        }
+    },
+    5000 // timeout fixo
+);
 }

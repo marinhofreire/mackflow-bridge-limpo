@@ -1,6 +1,5 @@
 import { getVehicleCategories } from "../connectors/cabme";
 import { listTickets } from "../connectors/zpro";
-import type { WorkerEnv } from "../config";
 import type { Context } from "hono";
 
 type CallResult = {
@@ -19,7 +18,7 @@ async function timedCall(fn: () => Promise<Response>): Promise<CallResult> {
 }
 
 export async function adminSmokeHandler(
-    c: Context<{ Bindings: WorkerEnv; Variables: { requestId: string } }>
+    c: Context<{ Bindings: any; Variables: { requestId: string } }>
 ) {
     const adminKey = c.env.ADMIN_KEY;
     if (adminKey && adminKey.length > 0) {
