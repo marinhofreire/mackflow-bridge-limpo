@@ -1,3 +1,4 @@
+// EOF
 // webhook.js - Módulo mínimo para Cloudflare Worker
 
 export async function handleWebhook(request, env) {
@@ -467,14 +468,15 @@ export async function saveClientConfig(kv, phone, config) {
       return json({ ok: false, error: "CLIENTS_KV_not_bound" }, 500);
     }
 
-    let payload;
+
+    let webhookPayload;
     try {
-      payload = await request.json();
+      webhookPayload = await request.json();
     } catch {
       return json({ ok: false, error: "invalid_json_payload" }, 400);
     }
 
-    const callerPhone = extractPhone(payload);
+    const callerPhone = extractPhone(webhookPayload);
     if (!callerPhone) {
       return json({ ok: false, error: "caller_phone_not_found" }, 400);
     }
