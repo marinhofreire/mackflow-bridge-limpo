@@ -108,6 +108,14 @@ function renderPainel({ secret = "", client = {}, selectedPhone = "", saved = fa
           <button class="h-12 rounded-xl bg-blue-600 px-6 text-sm font-semibold text-white hover:bg-blue-500" type="submit">Salvar no CLIENTS_KV</button>
         </form>
       </section>
+
+      <section class="rounded-2xl bg-yellow-100 border-2 border-yellow-400 p-6 shadow-sm ring-1 ring-yellow-300 flex items-center gap-4">
+        <span class="text-2xl">⚠️</span>
+        <div>
+          <div class="text-lg font-bold text-yellow-900">URL para cadastrar no Webhook do SouCall:</div>
+          <div class="text-blue-900 font-mono text-base select-all">https://bridge.mackflow.com.br/webhook</div>
+        </div>
+      </section>
     </main>
   </body>
 </html>`;
