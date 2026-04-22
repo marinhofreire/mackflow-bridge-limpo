@@ -63,12 +63,12 @@ function renderPainel({ secret = "", client = {}, selectedPhone = "", saved = fa
         <form class="mt-4 grid gap-4 sm:grid-cols-[1fr_auto]" method="GET" action="/painel">
           <input type="hidden" name="secret" value="${escapeHtml(secret)}" />
           ${inputField({
-            name: "phone",
-            label: "Telefone da empresa (chave KV)",
-            value: selectedPhone,
-            required: true,
-            placeholder: "5511999999999",
-          })}
+    name: "phone",
+    label: "Telefone da empresa (chave KV)",
+    value: selectedPhone,
+    required: true,
+    placeholder: "5511999999999",
+  })}
           <button class="mt-7 h-12 rounded-xl bg-slate-900 px-6 text-sm font-semibold text-white hover:bg-slate-800" type="submit">Carregar</button>
         </form>
       </section>
@@ -100,11 +100,11 @@ function renderPainel({ secret = "", client = {}, selectedPhone = "", saved = fa
             ${inputField({ name: "totalChildren", label: "Total crianças", value: client.totalChildren || "0" })}
           </div>
           ${textAreaField({
-            name: "driverMessageTemplate",
-            label: "Template WhatsApp para motorista",
-            value: client.driverMessageTemplate || "Nova ocorrencia enviada para voce. Cliente: {{customer_phone}}. Protocolo: {{protocol}}.",
-            placeholder: "Use {{customer_phone}} e {{protocol}} no texto.",
-          })}
+    name: "driverMessageTemplate",
+    label: "Template WhatsApp para motorista",
+    value: client.driverMessageTemplate || "Nova ocorrencia enviada para voce. Cliente: {{customer_phone}}. Protocolo: {{protocol}}.",
+    placeholder: "Use {{customer_phone}} e {{protocol}} no texto.",
+  })}
           <button class="h-12 rounded-xl bg-blue-600 px-6 text-sm font-semibold text-white hover:bg-blue-500" type="submit">Salvar no CLIENTS_KV</button>
         </form>
       </section>
