@@ -441,7 +441,7 @@ function escapeHtml(value = "") {
           </button>
         </form>
       </section>
-    </main >
-  </body >
-</html > `;
+    </main>
+  </body>
+</html>`;
 }

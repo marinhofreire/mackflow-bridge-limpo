@@ -551,10 +551,10 @@ export async function saveClientConfig(kv, phone, config) {
       aiReply,
       sentMessage,
       // aiReady removido: não há mais chave fixa no código
-    cabme: {
-      status: cabmeResponse.status,
-      response: cabmeBody,
-    },
-    whatsapp,
+      cabme: {
+        status: cabmeResponse.status,
+        response: cabmeBody,
+      },
+      whatsapp,
     });
-  }
+}
