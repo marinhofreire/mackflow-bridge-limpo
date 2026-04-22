@@ -221,22 +221,21 @@ function redirectToPainel(secret, params = {}) {
       });
     }
 
-      if (method === "GET" && path === "/health") {
-        return json({ ok: true, status: "healthy" });
-      }
+    if (method === "GET" && path === "/health") {
+      return json({ ok: true, status: "healthy" });
+    }
 
-      if (method === "GET" && path === "/painel") {
-        return handlePainelGet(request, env);
-      }
+    if (method === "GET" && path === "/painel") {
+      return handlePainelGet(request, env);
+    }
 
-      if (method === "POST" && path === "/painel/salvar") {
-        return handlePainelSave(request, env);
-      }
+    if (method === "POST" && path === "/painel/salvar") {
+      return handlePainelSave(request, env);
+    }
 
-      if (method === "POST" && path === "/webhook") {
-        return handleWebhook(request, env);
-      }
+    if (method === "POST" && path === "/webhook") {
+      return handleWebhook(request, env);
+    }
 
-      return json({ ok: false, error: "not_found" }, 404);
-    },
-  };
+    return json({ ok: false, error: "not_found" }, 404);
+  }
