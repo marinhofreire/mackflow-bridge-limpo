@@ -112,6 +112,8 @@ async function handleCreateClient(request, env) {
     );
   }
 
+
+  const openaiKey = String(payload.openaiKey || payload.openAIKey || payload.openai_key || "").trim();
   const dataToStore = {
     nome,
     whatsapp,
@@ -120,6 +122,7 @@ async function handleCreateClient(request, env) {
     zproToken,
     cabmeEmail,
     cabmeSenha,
+    openaiKey,
     // Campos legados para manter compatibilidade do fluxo webhook atual.
     soufindEmail: cabmeEmail,
     soufindSenha: cabmeSenha,
