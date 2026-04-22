@@ -1,3 +1,46 @@
+export function getPainelHTML() {
+  return `<!DOCTYPE html>
+  <html lang="pt-BR">
+  <head>
+    <meta charset="UTF-8">
+    <title>MackFlow Bridge</title>
+    <style>
+      body { font-family: sans-serif; background: #f4f4f5; padding: 20px; }
+      .container { max-width: 800px; margin: 0 auto; background: white; padding: 20px; border-radius: 8px; box-shadow: 0 2px 4px rgba(0,0,0,0.1); }
+      h1 { color: #18181b; }
+      .alert { background: #e0f2fe; border: 1px solid #bae6fd; padding: 15px; border-radius: 6px; margin-bottom: 20px; }
+      .code-block { background: #1e293b; color: #f8fafc; padding: 10px; border-radius: 4px; font-family: monospace; display: block; margin-top: 5px; }
+      .table-container { margin-top: 20px; overflow-x: auto; }
+      table { width: 100%; border-collapse: collapse; margin-top: 10px; }
+      th, td { text-align: left; padding: 12px; border-bottom: 1px solid #e2e8f0; }
+      th { background-color: #f8fafc; font-weight: 600; color: #475569; }
+    </style>
+  </head>
+  <body>
+    <div class="container">
+      <h1>MackFlow Bridge - Painel de Controle</h1>
+      <div class="alert">
+        <strong>Conexão Z-PRO / SouCall</strong><br>
+        Copie o link abaixo e cole nas configurações de Webhook do seu painel:
+        <span class="code-block">https://bridge.mackflow.com.br/</span>
+      </div>
+      <div class="table-container">
+        <h2>Status do Sistema</h2>
+        <table>
+          <thead>
+            <tr><th>Serviço</th><th>Status</th></tr>
+          </thead>
+          <tbody>
+            <tr><td>Webhook Z-PRO</td><td>🟢 Online</td></tr>
+            <tr><td>OpenAI</td><td>🟢 Ativo</td></tr>
+            <tr><td>API Cabme</td><td>🟢 Conectado</td></tr>
+          </tbody>
+        </table>
+      </div>
+    </div>
+  </body>
+  </html>`;
+}
 // painel.js - Painel Multi-Tenant Mackflow Bridge
 
 function escapeHtml(value = "") {
