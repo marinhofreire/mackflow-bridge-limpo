@@ -306,20 +306,6 @@ function escapeHtml(value = "") {
     </html>`;
 
 
-      <section class="rounded-2xl bg-white p-6 shadow-sm ring-1 ring-slate-200">
-        <h2 class="text-lg font-semibold">Buscar cliente</h2>
-        <form class="mt-4 grid gap-4 sm:grid-cols-[1fr_auto]" method="GET" action="/painel">
-          <input type="hidden" name="secret" value="${escapeHtml(secret)}" />
-          ${inputField({
-            name: "phone",
-            label: "Telefone da empresa (chave KV)",
-            value: selectedPhone,
-            required: true,
-            placeholder: "5511999999999",
-          })}
-          <button class="mt-7 h-12 rounded-xl bg-slate-900 px-6 text-sm font-semibold text-white hover:bg-slate-800" type="submit">Carregar</button>
-        </form>
-      </section>
 
       <section class="rounded-2xl bg-white p-6 shadow-sm ring-1 ring-slate-200">
         <h2 class="text-lg font-semibold">Configurar cliente</h2>

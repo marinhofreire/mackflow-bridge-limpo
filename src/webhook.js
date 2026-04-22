@@ -507,7 +507,6 @@ export async function saveClientConfig(kv, phone, config) {
       body: buildCabmeFormData(payload, tenant, callerPhone, env),
     });
 
-<<<<<<< HEAD
 
     const messageText = extractMessageText(body);
     let aiReply = null;
@@ -518,7 +517,6 @@ export async function saveClientConfig(kv, phone, config) {
     if (messageText) {
       aiReply = await (typeof generateAiReply === 'function' ? generateAiReply(messageText, openaiKey) : generateAiReply(messageText));
       sentMessage = await sendTextToCustomer(zproCfg, callerPhone, aiReply);
-=======
   const cabmeBody = await parseResponse(cabmeResponse);
 
   if (!cabmeResponse.ok) {
@@ -538,14 +536,12 @@ export async function saveClientConfig(kv, phone, config) {
   let whatsapp = { sent: false, reason: "driver_phone_not_found" };
   if (driverPhone) {
     whatsapp = await sendWhatsappToDriver(driverPhone, payload, tenant, cabmeBody, env);
->>>>>>> parent of 0d452c3 (Deploy final - Integração ZPRO e OpenAI)
     }
 
     return json({
       ok: true,
       tenant: tenant.tenantId || tenant.companyName || tenant.keyPhone,
       callerPhone,
-<<<<<<< HEAD
       trigger: trigger || "incoming-message",
       instanciaUsada: zproCfg.ok ? zproCfg.instancia : null,
       kanbanTarget: targetKanban,
@@ -553,12 +549,10 @@ export async function saveClientConfig(kv, phone, config) {
       aiReply,
       sentMessage,
       // aiReady removido: não há mais chave fixa no código
-=======
     cabme: {
       status: cabmeResponse.status,
       response: cabmeBody,
     },
     whatsapp,
->>>>>>> parent of 0d452c3 (Deploy final - Integração ZPRO e OpenAI)
     });
   }
