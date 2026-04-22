@@ -46,7 +46,7 @@ function renderPainel({ secret = "", client = {}, selectedPhone = "", saved = fa
             if (data.clientes.length === 0) {
               el.innerHTML = '<div class="text-slate-500">Nenhum cliente cadastrado.</div>';
             } else {
-                el.innerHTML = `<table class="min-w-full text-sm"><thead><tr><th class="text-left">Telefone</th><th class="text-left">Empresa</th><th class="text-left">Tenant</th><th class="text-left">WhatsApp</th></tr></thead><tbody>` + data.clientes.map(c => `<tr><td class="pr-4">${c.keyPhone||''}</td><td class="pr-4">${c.companyName||''}</td><td class="pr-4">${c.tenantId||''}</td><td class="pr-4">${c.whatsapp||''}</td></tr>`).join('') + '</tbody></table>';
+              el.innerHTML = `<table class="min-w-full text-sm"><thead><tr><th class="text-left">Telefone</th><th class="text-left">Empresa</th><th class="text-left">Tenant</th><th class="text-left">WhatsApp</th></tr></thead><tbody>` + data.clientes.map(c => `<tr><td class="pr-4">${c.keyPhone||''}</td><td class="pr-4">${c.companyName||''}</td><td class="pr-4">${c.tenantId||''}</td><td class="pr-4">${c.whatsapp||''}</td></tr>`).join('') + '</tbody></table>';
 }
           } else {
   el.innerHTML = '<div class="text-red-600">Erro ao carregar clientes.</div>';
