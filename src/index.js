@@ -36,13 +36,11 @@ function redirectToPainel(secret, params = {}) {
   async function listAllKeys(kv) {
     const allKeys = [];
     let cursor;
-
     do {
       const page = await kv.list({ cursor });
       allKeys.push(...page.keys);
       cursor = page.list_complete ? undefined : page.cursor;
     } while (cursor);
-
     return allKeys;
   }
 
@@ -50,18 +48,15 @@ function redirectToPainel(secret, params = {}) {
     if (!isAuthorized(request, env)) {
       return json({ ok: false, error: "unauthorized" }, 401);
     }
-
     if (!requireKv(env)) {
       return json({ ok: false, error: "CLIENTS_KV_not_bound" }, 500);
     }
-
     let payload;
     try {
       payload = await request.json();
     } catch {
       return json({ ok: false, error: "invalid_json_payload" }, 400);
     }
-
     const nome = String(payload.nome || "").trim();
     const whatsapp = normalizePhone(payload.whatsapp);
     const zproApiUrl = String(payload.zproApiUrl || "").trim();
@@ -69,7 +64,6 @@ function redirectToPainel(secret, params = {}) {
     const zproToken = String(payload.zproToken || "").trim();
     const cabmeEmail = String(payload.cabmeEmail || "").trim();
     const cabmeSenha = String(payload.cabmeSenha || "").trim();
-
     if (!nome || !whatsapp || !zproApiUrl || !zproInstance || !zproToken || !cabmeEmail || !cabmeSenha) {
       return json(
         {
@@ -80,8 +74,6 @@ function redirectToPainel(secret, params = {}) {
         400,
       );
     }
-
-
     const openaiKey = String(payload.openaiKey || payload.openAIKey || payload.openai_key || "").trim();
     const dataToStore = {
       nome,
@@ -98,7 +90,6 @@ function redirectToPainel(secret, params = {}) {
       whatsappToken: zproToken,
       updatedAt: new Date().toISOString(),
     };
-
     await env.CLIENTS_KV.put(whatsapp, JSON.stringify(dataToStore));
     return json({
       ok: true,
@@ -119,13 +110,11 @@ function redirectToPainel(secret, params = {}) {
     if (!isPainelAuthorized(url, env)) {
       return new Response("Unauthorized", { status: 401 });
     }
-
     const secret = url.searchParams.get("secret");
     const selectedPhone = normalizePhone(url.searchParams.get("phone"));
     const client = selectedPhone && env.CLIENTS_KV ? await loadClientConfig(env.CLIENTS_KV, selectedPhone) : null;
     const saved = url.searchParams.get("saved") === "1";
     const error = url.searchParams.get("error") || "";
-
     return new Response(
       renderPainel({
         secret,
@@ -145,21 +134,17 @@ function redirectToPainel(secret, params = {}) {
     if (!isPainelAuthorized(url, env)) {
       return new Response("Unauthorized", { status: 401 });
     }
-
     if (!env.CLIENTS_KV) {
       return json({ ok: false, error: "CLIENTS_KV_not_bound" }, 500);
     }
-
     const form = await request.formData();
     const keyPhone = normalizePhone(form.get("keyPhone"));
     const secret = url.searchParams.get("secret");
-
     if (!keyPhone) {
       return redirectToPainel(secret, {
         error: "Telefone obrigatorio para salvar.",
       });
     }
-
     const config = {
       keyPhone,
       tenantId: String(form.get("tenantId") || "").trim(),
@@ -184,59 +169,11 @@ function redirectToPainel(secret, params = {}) {
       totalChildren: String(form.get("totalChildren") || "").trim(),
       driverMessageTemplate: String(form.get("driverMessageTemplate") || "").trim(),
     };
-
     await saveClientConfig(env.CLIENTS_KV, keyPhone, config);
-
     return redirectToPainel(secret, {
       saved: "1",
       phone: keyPhone,
     });
   }
-  addEventListener("fetch", event => {
-    event.respondWith(handleRequest(event.request, event));
-  });
-
-  async function handleRequest(request, event) {
-    const url = new URL(request.url);
-    const path = url.pathname;
-    const method = request.method.toUpperCase();
-
-    if (method === "OPTIONS") {
-      return new Response(null, {
-        status: 204,
-        headers: {
-          "access-control-allow-origin": "*",
-          "access-control-allow-methods": "GET,POST,OPTIONS",
-          "access-control-allow-headers": "content-type,authorization",
-        },
-      });
-    }
-
-    if (method === "GET" && path === "/") {
-      return json({
-        ok: true,
-        service: "mackflow-bridge",
-        routes: ["/webhook", "/painel"],
-        timestamp: new Date().toISOString(),
-      });
-    }
-
-    if (method === "GET" && path === "/health") {
-      return json({ ok: true, status: "healthy" });
-    }
-
-    if (method === "GET" && path === "/painel") {
-      return handlePainelGet(request, env);
-    }
-
-    if (method === "POST" && path === "/painel/salvar") {
-      return handlePainelSave(request, env);
-    }
-
-    if (method === "POST" && path === "/webhook") {
-      return handleWebhook(request, env);
-    }
-
-    return json({ ok: false, error: "not_found" }, 404);
-  }
+}
 
