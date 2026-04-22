@@ -111,7 +111,10 @@ function parseApiUrlParts(rawUrl) {
   const text = String(rawUrl || "").trim();
   if (!text) return { baseUrl: "", apiIdFromUrl: "" };
 
-  const fullMatch = text.match(/^(https?:\/\/[^/]+)\/v2\/api\/external\/([^/?#]+)/i);
+  const extractedUrl = text.match(/https?:\/\/[^\s]+/i)?.[0] || text;
+  const normalizedInput = extractedUrl.replace(/^url:\s*/i, "").trim();
+
+  const fullMatch = normalizedInput.match(/^(https?:\/\/[^/]+)\/v2\/api\/external\/([^/?#]+)/i);
   if (fullMatch) {
     return {
       baseUrl: fullMatch[1],
@@ -119,9 +122,9 @@ function parseApiUrlParts(rawUrl) {
     };
   }
 
-  const baseMatch = text.match(/^(https?:\/\/[^/]+)/i);
+  const baseMatch = normalizedInput.match(/^(https?:\/\/[^/]+)/i);
   return {
-    baseUrl: baseMatch ? baseMatch[1] : text.replace(/\/+$/, ""),
+    baseUrl: baseMatch ? baseMatch[1] : "",
     apiIdFromUrl: "",
   };
 }
@@ -232,7 +235,7 @@ function resolveOutboundConfig(client, env) {
   const apiId = firstNonEmpty(client?.zproApiId, parsed.apiIdFromUrl, env.ZPRO_API_ID);
   const token = firstNonEmpty(client?.zproToken, env.ZPRO_API_TOKEN, env.ZPRO_TOKEN);
   const openaiKey = firstNonEmpty(client?.openaiKey, env.OPENAI_API_KEY, env.OPENAI_KEY);
-  const externalKey = firstNonEmpty(client?.zproExternalKey, env.ZPRO_EXTERNAL_KEY);
+  const externalKey = firstNonEmpty(client?.zproExternalKey, env.ZPRO_EXTERNAL_KEY, "mackflow-bridge");
 
   return {
     baseUrl: baseUrl.replace(/\/+$/, ""),
@@ -267,19 +270,15 @@ async function sendMessageToZPRO({ baseUrl, apiId, token, number, body, external
     number: normalizedNumber,
     body: messageText,
     text: messageText,
+    externalKey: firstNonEmpty(externalKey, "mackflow-bridge"),
     isClosed: false,
   };
-
-  if (externalKey) {
-    requestPayload.externalKey = externalKey;
-  }
 
   const bearer = withBearer(token);
   const headers = {
     "content-type": "application/json",
     accept: "application/json",
     Authorization: bearer,
-    authorization: bearer,
   };
 
   console.log("ZPRO_OUTBOUND_REQUEST", JSON.stringify({
@@ -290,11 +289,22 @@ async function sendMessageToZPRO({ baseUrl, apiId, token, number, body, external
   }));
 
   // CRITICO: aguarda envio concluir antes de finalizar o Worker
-  const response = await fetch(url, {
-    method: "POST",
-    headers,
-    body: JSON.stringify(requestPayload),
-  });
+  let response;
+  try {
+    response = await fetch(url, {
+      method: "POST",
+      headers,
+      body: JSON.stringify(requestPayload),
+    });
+  } catch (error) {
+    return {
+      ok: false,
+      reason: "zpro_fetch_exception",
+      details: String(error),
+      url,
+      requestPayload,
+    };
+  }
 
   const parsed = await parseResponse(response);
 
