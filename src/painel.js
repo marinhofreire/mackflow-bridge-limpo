@@ -47,17 +47,17 @@ function renderPainel({ secret = "", client = {}, selectedPhone = "", saved = fa
               el.innerHTML = '<div class="text-slate-500">Nenhum cliente cadastrado.</div>';
             } else {
               el.innerHTML = `<table class="min-w-full text-sm"><thead><tr><th class="text-left">Telefone</th><th class="text-left">Empresa</th><th class="text-left">Tenant</th><th class="text-left">WhatsApp</th></tr></thead><tbody>` + data.clientes.map(c => `<tr><td class="pr-4">${c.keyPhone||''}</td><td class="pr-4">${c.companyName||''}</td><td class="pr-4">${c.tenantId||''}</td><td class="pr-4">${c.whatsapp||''}</td></tr>`).join('') + '</tbody></table>';
-            }
+}
           } else {
-            el.innerHTML = '<div class="text-red-600">Erro ao carregar clientes.</div>';
-          }
+  el.innerHTML = '<div class="text-red-600">Erro ao carregar clientes.</div>';
+}
         } catch (e) {
-          el.innerHTML = '<div class="text-red-600">Erro ao carregar clientes.</div>';
-        }
+  el.innerHTML = '<div class="text-red-600">Erro ao carregar clientes.</div>';
+}
       }
-      window.addEventListener('DOMContentLoaded', carregarClientes);
-    </script>
-  </head>
+window.addEventListener('DOMContentLoaded', carregarClientes);
+    </script >
+  </head >
   <body class="min-h-screen bg-slate-100 text-slate-900">
     <main class="mx-auto max-w-5xl space-y-6 px-4 py-8 sm:px-6 lg:px-8">
       <section class="rounded-2xl bg-white p-6 shadow-sm ring-1 ring-slate-200">
@@ -145,7 +145,7 @@ function renderPainel({ secret = "", client = {}, selectedPhone = "", saved = fa
       </section>
     </main>
   </body>
-</html>`;
+</html > `;
 }
 
 // Export para uso no Worker
