@@ -31,33 +31,7 @@ function redirectToPainel(secret, params = {}) {
     }
   });
 
-<<<<<<< HEAD
-  function maskSensitive(value) {
-    return value ? "********" : "";
-  }
-
-  function mapClientRecord(record, keyName) {
-    if (!record || typeof record !== "object") {
-      return null;
-    }
-
-    const whatsappFromKey = keyName.startsWith("client:") ? keyName.slice("client:".length) : keyName;
-    const whatsapp = normalizePhone(record.whatsapp || record.keyPhone || whatsappFromKey);
-    if (!whatsapp) {
-      return null;
-    }
-
-    const nome = String(record.nome || record.companyName || record.tenantId || "Sem nome").trim();
-    const zproApiUrl = String(record.zproApiUrl || record.whatsappSendUrl || "").trim();
-    const zproInstance = String(record.zproInstance || record.zproInstanceId || "").trim();
-    const zproToken = String(record.zproToken || record.whatsappToken || record.zproToken || "").trim();
-    const cabmeEmail = String(record.cabmeEmail || record.soufindEmail || "").trim();
-    const cabmeSenha = String(record.cabmeSenha || record.soufindSenha || "").trim();
-
-    return {
-      key: keyName,
-      nome: nome || "Sem nome",
-      whatsapp,
+  // ...existing code...
       zproApiUrl,
       zproInstance,
       zproToken: maskSensitive(zproToken),
