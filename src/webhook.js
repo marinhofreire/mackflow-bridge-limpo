@@ -15,10 +15,6 @@ function json(data, status = 200) {
   });
 }
 
-function normalizePhone(value) {
-  return String(value || "").replace(/\D/g, "");
-}
-
 function firstNonEmpty(...values) {
   for (const value of values) {
     if (value !== undefined && value !== null) {
@@ -52,21 +48,43 @@ async function parseResponse(response) {
 }
 
 function unwrapPayload(payload) {
-  if (payload && typeof payload.body === "object" && payload.body !== null) {
-    return payload.body;
+  let cursor = payload;
+  let guard = 0;
+
+  while (cursor && typeof cursor.body === "object" && cursor.body !== null && guard < 4) {
+    cursor = cursor.body;
+    guard += 1;
   }
-  return payload;
+
+  return cursor;
+}
+
+function sanitizeNumber(value) {
+  return String(value || "")
+    .replace(/@s\.whatsapp\.net/gi, "")
+    .replace(/@c\.us/gi, "")
+    .replace(/@g\.us/gi, "")
+    .replace(/\D/g, "");
+}
+
+function normalizeOutgoingNumber(value) {
+  let digits = sanitizeNumber(value);
+  if ((digits.length === 10 || digits.length === 11) && !digits.startsWith("55")) {
+    digits = `55${digits}`;
+  }
+  return digits;
 }
 
 function extractIncomingData(payload) {
   const root = unwrapPayload(payload);
 
-  const number = normalizePhone(
+  const number = normalizeOutgoingNumber(
     firstNonEmpty(
       byPath(root, "ticket.contact.number"),
       byPath(root, "msg.key.sender_pn"),
       byPath(root, "ticket.number"),
       byPath(root, "contact.number"),
+      byPath(root, "number"),
     ),
   );
 
@@ -75,6 +93,7 @@ function extractIncomingData(payload) {
     byPath(root, "msg.message.extendedTextMessage.text"),
     byPath(root, "ticket.lastMessage"),
     byPath(root, "msg.body"),
+    byPath(root, "message"),
   );
 
   const apiHint = firstNonEmpty(
@@ -114,7 +133,7 @@ function withBearer(token) {
 }
 
 function keyVariants(phone) {
-  const normalized = normalizePhone(phone);
+  const normalized = sanitizeNumber(phone);
   const set = new Set();
 
   if (!normalized) return [];
@@ -154,9 +173,7 @@ async function findClientConfig(env, number, apiHint) {
       const record = await env.CLIENTS_KV.get(key.name, { type: "json" });
       if (!record || typeof record !== "object") continue;
 
-      if (!firstRecord) {
-        firstRecord = record;
-      }
+      if (!firstRecord) firstRecord = record;
 
       if (apiHint) {
         const apiFromField = String(record.zproApiId || "").trim();
@@ -172,10 +189,7 @@ async function findClientConfig(env, number, apiHint) {
     cursor = listed.cursor;
   }
 
-  if (firstRecord) {
-    return { source: "fallback_first", config: firstRecord };
-  }
-
+  if (firstRecord) return { source: "fallback_first", config: firstRecord };
   return null;
 }
 
@@ -218,11 +232,18 @@ function resolveOutboundConfig(client, env) {
   const apiId = firstNonEmpty(client?.zproApiId, parsed.apiIdFromUrl, env.ZPRO_API_ID);
   const token = firstNonEmpty(client?.zproToken, env.ZPRO_API_TOKEN, env.ZPRO_TOKEN);
   const openaiKey = firstNonEmpty(client?.openaiKey, env.OPENAI_API_KEY, env.OPENAI_KEY);
+  const externalKey = firstNonEmpty(client?.zproExternalKey, env.ZPRO_EXTERNAL_KEY);
 
-  return { baseUrl: baseUrl.replace(/\/+$/, ""), apiId, token, openaiKey };
+  return {
+    baseUrl: baseUrl.replace(/\/+$/, ""),
+    apiId,
+    token,
+    openaiKey,
+    externalKey,
+  };
 }
 
-async function sendMessageToZPRO({ baseUrl, apiId, token, number, body }) {
+async function sendMessageToZPRO({ baseUrl, apiId, token, number, body, externalKey }) {
   if (!baseUrl || !apiId || !token) {
     return {
       ok: false,
@@ -231,23 +252,57 @@ async function sendMessageToZPRO({ baseUrl, apiId, token, number, body }) {
     };
   }
 
+  const normalizedNumber = normalizeOutgoingNumber(number);
+  if (!normalizedNumber) {
+    return {
+      ok: false,
+      reason: "invalid_destination_number",
+      details: { rawNumber: number || "" },
+    };
+  }
+
   const url = `${baseUrl}/v2/api/external/${apiId}`;
+  const messageText = String(body || "").trim() || DEFAULT_REPLY;
   const requestPayload = {
-    body,
-    number,
+    number: normalizedNumber,
+    body: messageText,
+    text: messageText,
     isClosed: false,
   };
 
+  if (externalKey) {
+    requestPayload.externalKey = externalKey;
+  }
+
+  const bearer = withBearer(token);
+  const headers = {
+    "content-type": "application/json",
+    accept: "application/json",
+    Authorization: bearer,
+    authorization: bearer,
+  };
+
+  console.log("ZPRO_OUTBOUND_REQUEST", JSON.stringify({
+    url,
+    number: normalizedNumber,
+    hasBearer: !!bearer,
+    hasExternalKey: !!externalKey,
+  }));
+
+  // CRITICO: aguarda envio concluir antes de finalizar o Worker
   const response = await fetch(url, {
     method: "POST",
-    headers: {
-      authorization: withBearer(token),
-      "content-type": "application/json",
-    },
+    headers,
     body: JSON.stringify(requestPayload),
   });
 
   const parsed = await parseResponse(response);
+
+  console.log("ZPRO_OUTBOUND_RESPONSE", JSON.stringify({
+    status: parsed.status,
+    ok: parsed.ok,
+  }));
+
   return {
     ok: response.ok,
     status: response.status,
@@ -289,12 +344,14 @@ export async function handleWebhook(request, env) {
 
   const outboundConfig = resolveOutboundConfig(foundClient.config, env);
   const replyText = await generateAIReply(incoming.text, outboundConfig.openaiKey);
+
   const outbound = await sendMessageToZPRO({
     baseUrl: outboundConfig.baseUrl,
     apiId: outboundConfig.apiId,
     token: outboundConfig.token,
     number: incoming.number,
     body: replyText,
+    externalKey: outboundConfig.externalKey,
   });
 
   if (!outbound.ok) {
