@@ -1,9 +1,80 @@
 // webhook.js - Módulo mínimo para Cloudflare Worker
 
 export async function handleWebhook(request, env) {
-  return new Response(JSON.stringify({ ok: true, msg: "Webhook recebido" }), {
-    status: 200,
-    headers: { "content-type": "application/json" },
+  if (!env.CLIENTS_KV) {
+    return json({ ok: false, error: "CLIENTS_KV_not_bound" }, 500);
+  }
+
+  let webhookPayload;
+  try {
+    webhookPayload = await request.json();
+  } catch {
+    return json({ ok: false, error: "invalid_json_payload" }, 400);
+  }
+
+  const callerPhone = extractPhone(webhookPayload);
+  if (!callerPhone) {
+    return json({ ok: false, error: "caller_phone_not_found" }, 400);
+  }
+
+  const tenant = await loadClientConfig(env.CLIENTS_KV, callerPhone);
+  if (!tenant) {
+    return json(
+      {
+        ok: false,
+        error: "tenant_not_found",
+        callerPhone,
+        expectedKey: `client:${callerPhone}`,
+      },
+      404,
+    );
+  }
+
+  const cabmeUrl = buildCabmeUrl(tenant, env);
+  const cabmeHeaders = {};
+  if (tenant.cabmeToken) {
+    cabmeHeaders.authorization = `Bearer ${tenant.cabmeToken}`;
+  }
+  if (tenant.cabmeApiKey) {
+    cabmeHeaders["x-api-key"] = tenant.cabmeApiKey;
+  }
+
+  const cabmeResponse = await fetch(cabmeUrl, {
+    method: "POST",
+    headers: cabmeHeaders,
+    body: buildCabmeFormData(webhookPayload, tenant, callerPhone, env),
+  });
+
+  const cabmeBody = await parseResponse(cabmeResponse);
+
+  if (!cabmeResponse.ok) {
+    return json(
+      {
+        ok: false,
+        error: "cabme_request_failed",
+        status: cabmeResponse.status,
+        cabmeUrl,
+        response: cabmeBody,
+      },
+      502,
+    );
+  }
+
+  const driverPhone = extractDriverPhone(cabmeBody);
+  let whatsapp = { sent: false, reason: "driver_phone_not_found" };
+  if (driverPhone) {
+    whatsapp = await sendWhatsappToDriver(driverPhone, webhookPayload, tenant, cabmeBody, env);
+  }
+
+  return json({
+    ok: true,
+    tenant: tenant.tenantId || tenant.companyName || tenant.keyPhone,
+    callerPhone,
+    cabme: {
+      status: cabmeResponse.status,
+      response: cabmeBody,
+    },
+    whatsapp,
   });
 }
 
@@ -307,235 +378,238 @@ export async function saveClientConfig(kv, phone, config) {
     throw new Error("phone_required");
   }
 
-  const payload = {
+  const payloadToSave = {
     ...config,
     keyPhone: normalized,
     updatedAt: new Date().toISOString(),
   };
 
-  async function parseResponse(response) {
-    const raw = await response.text();
-    try {
-      return JSON.parse(raw);
-    } catch {
-      return raw;
-    }
+  await kv.put(`${TENANT_PREFIX}${normalized}`, JSON.stringify(payloadToSave));
+  return payloadToSave;
+}
+
+async function parseResponse(response) {
+  const raw = await response.text();
+  try {
+    return JSON.parse(raw);
+  } catch {
+    return raw;
+  }
+}
+
+async function zproPost(cfg, endpoint, body) {
+  if (!cfg.ok) {
+    return { ok: false, reason: cfg.reason };
   }
 
-  async function zproPost(cfg, endpoint, body) {
-    if (!cfg.ok) {
-      return { ok: false, reason: cfg.reason };
-    }
+  const endpointSuffix = endpoint ? `/${String(endpoint).replace(/^\/+/, "")}` : "";
+  const url = `${cfg.base}${endpointSuffix}`;
 
-    const endpointSuffix = endpoint ? `/${String(endpoint).replace(/^\/+/, "")}` : "";
-    const url = `${cfg.base}${endpointSuffix}`;
+  const response = await fetch(url, {
+    method: "POST",
+    headers: {
+      authorization: cfg.token,
+      "content-type": "application/json",
+    },
+    body: JSON.stringify(body),
+  });
 
-    const response = await fetch(url, {
-      method: "POST",
-      headers: {
-        authorization: cfg.token,
-        "content-type": "application/json",
-      },
-      body: JSON.stringify(body),
-    });
+  const parsed = await parseResponse(response);
+  return {
+    ok: response.ok,
+    status: response.status,
+    url,
+    response: parsed,
+  };
+}
 
-    const parsed = await parseResponse(response);
-    return {
-      ok: response.ok,
-      status: response.status,
-      url,
-      response: parsed,
-    };
+function extractContactId(showContactResponse) {
+  return pickFirst(
+    getByPath(showContactResponse, "contactId"),
+    getByPath(showContactResponse, "id"),
+    getByPath(showContactResponse, "contact.id"),
+    getByPath(showContactResponse, "data.contactId"),
+    getByPath(showContactResponse, "data.id"),
+    getByPath(showContactResponse, "data.contact.id"),
+    getByPath(showContactResponse, "response.contactId"),
+  );
+}
+
+function buildKanbanIds(tenant) {
+  return {
+    triagem: Number(pickFirst(tenant.kanbanTriagemId, tenant.kanbanTriagem, "1")),
+    osAberta: Number(pickFirst(tenant.kanbanOsAbertaId, tenant.kanbanOsAberta, "2")),
+    prestador: Number(pickFirst(tenant.kanbanPrestadorConfirmadoId, tenant.kanbanPrestador, "3")),
+    finalizada: Number(pickFirst(tenant.kanbanOsFinalizadaId, tenant.kanbanFinalizada, "4")),
+  };
+}
+
+function pickKanbanId(trigger, ids) {
+  if (trigger === "ride-book") {
+    return ids.osAberta;
+  }
+  if (trigger === "confirm-requete") {
+    return ids.prestador;
+  }
+  if (trigger === "complete-requete") {
+    return ids.finalizada;
+  }
+  return ids.triagem;
+}
+
+async function moveKanbanByNumber(cfg, number, kanbanId) {
+  const showContact = await zproPost(cfg, "showcontact", { number });
+  if (!showContact.ok) {
+    return { moved: false, step: "showcontact", detail: showContact };
   }
 
-  function extractContactId(showContactResponse) {
-    return pickFirst(
-      getByPath(showContactResponse, "contactId"),
-      getByPath(showContactResponse, "id"),
-      getByPath(showContactResponse, "contact.id"),
-      getByPath(showContactResponse, "data.contactId"),
-      getByPath(showContactResponse, "data.id"),
-      getByPath(showContactResponse, "data.contact.id"),
-      getByPath(showContactResponse, "response.contactId"),
-    );
+  const contactId = extractContactId(showContact.response);
+  if (!contactId) {
+    return { moved: false, step: "showcontact", reason: "contactId_not_found", detail: showContact };
   }
 
-  function buildKanbanIds(tenant) {
-    return {
-      triagem: Number(pickFirst(tenant.kanbanTriagemId, tenant.kanbanTriagem, "1")),
-      osAberta: Number(pickFirst(tenant.kanbanOsAbertaId, tenant.kanbanOsAberta, "2")),
-      prestador: Number(pickFirst(tenant.kanbanPrestadorConfirmadoId, tenant.kanbanPrestador, "3")),
-      finalizada: Number(pickFirst(tenant.kanbanOsFinalizadaId, tenant.kanbanFinalizada, "4")),
-    };
+  const update = await zproPost(cfg, "updateContactKanban", {
+    contactId: Number(contactId),
+    kanban: Number(kanbanId),
+  });
+
+  if (!update.ok) {
+    return { moved: false, step: "updateContactKanban", detail: update, contactId };
   }
 
-  function pickKanbanId(trigger, ids) {
-    if (trigger === "ride-book") {
-      return ids.osAberta;
-    }
-    if (trigger === "confirm-requete") {
-      return ids.prestador;
-    }
-    if (trigger === "complete-requete") {
-      return ids.finalizada;
-    }
-    return ids.triagem;
+  return {
+    moved: true,
+    contactId: Number(contactId),
+    kanban: Number(kanbanId),
+    showcontact: { status: showContact.status, ok: true },
+    update: { status: update.status, ok: true },
+  };
+}
+
+async function generateAiReply(messageText) {
+
+  if (!messageText) {
+    return "Dados recebidos. Iniciando busca...";
   }
 
-  async function moveKanbanByNumber(cfg, number, kanbanId) {
-    const showContact = await zproPost(cfg, "showcontact", { number });
-    if (!showContact.ok) {
-      return { moved: false, step: "showcontact", detail: showContact };
-    }
+  // A chave será passada como argumento
 
-    const contactId = extractContactId(showContact.response);
-    if (!contactId) {
-      return { moved: false, step: "showcontact", reason: "contactId_not_found", detail: showContact };
-    }
-
-    const update = await zproPost(cfg, "updateContactKanban", {
-      contactId: Number(contactId),
-      kanban: Number(kanbanId),
-    });
-
-    if (!update.ok) {
-      return { moved: false, step: "updateContactKanban", detail: update, contactId };
-    }
-
-    return {
-      moved: true,
-      contactId: Number(contactId),
-      kanban: Number(kanbanId),
-      showcontact: { status: showContact.status, ok: true },
-      update: { status: update.status, ok: true },
-    };
-  }
-
-  async function generateAiReply(messageText) {
-
+  // Função ajustada para receber a chave OpenAI dinamicamente
+  return async function (messageText, openaiKey) {
     if (!messageText) {
       return "Dados recebidos. Iniciando busca...";
     }
-
-    // A chave será passada como argumento
-
-    // Função ajustada para receber a chave OpenAI dinamicamente
-    return async function (messageText, openaiKey) {
-      if (!messageText) {
-        return "Dados recebidos. Iniciando busca...";
-      }
-      if (!openaiKey || openaiKey.length < 10) {
-        return "Dados recebidos. Iniciando busca...";
-      }
-      try {
-        const response = await fetch("https://api.openai.com/v1/chat/completions", {
-          method: "POST",
-          headers: {
-            authorization: `Bearer ${openaiKey}`,
-            "content-type": "application/json",
-          },
-          body: JSON.stringify({
-            model: "gpt-4o-mini",
-            messages: [
-              { role: "system", content: OPENAI_SYSTEM_PROMPT },
-              { role: "user", content: messageText },
-            ],
-            max_tokens: 100,
-            temperature: 0,
-          }),
-        });
-        const parsed = await parseResponse(response);
-        const text = pickFirst(getByPath(parsed, "choices.0.message.content"), "Dados recebidos. Iniciando busca...");
-        return text.slice(0, 150);
-      } catch {
-        return "Dados recebidos. Iniciando busca...";
-      }
+    if (!openaiKey || openaiKey.length < 10) {
+      return "Dados recebidos. Iniciando busca...";
     }
-  }
-
-  async function sendTextToCustomer(cfg, number, text) {
-    return zproPost(cfg, "", {
-      body: text,
-      number,
-      isClosed: false,
-    });
-    await kv.put(`${TENANT_PREFIX}${normalized}`, JSON.stringify(payload));
-    return payload;
-  }
-
-    if (!env.CLIENTS_KV) {
-      return json({ ok: false, error: "CLIENTS_KV_not_bound" }, 500);
-    }
-
-    let payload;
     try {
-      payload = await request.json();
+      const response = await fetch("https://api.openai.com/v1/chat/completions", {
+        method: "POST",
+        headers: {
+          authorization: `Bearer ${openaiKey}`,
+          "content-type": "application/json",
+        },
+        body: JSON.stringify({
+          model: "gpt-4o-mini",
+          messages: [
+            { role: "system", content: OPENAI_SYSTEM_PROMPT },
+            { role: "user", content: messageText },
+          ],
+          max_tokens: 100,
+          temperature: 0,
+        }),
+      });
+      const parsed = await parseResponse(response);
+      const text = pickFirst(getByPath(parsed, "choices.0.message.content"), "Dados recebidos. Iniciando busca...");
+      return text.slice(0, 150);
     } catch {
-      return json({ ok: false, error: "invalid_json_payload" }, 400);
+      return "Dados recebidos. Iniciando busca...";
     }
-
-    const callerPhone = extractPhone(payload);
-    if (!callerPhone) {
-      return json({ ok: false, error: "caller_phone_not_found" }, 400);
-    }
-
-    const tenant = await loadClientConfig(env.CLIENTS_KV, callerPhone);
-    if (!tenant) {
-      return json(
-        {
-          ok: false,
-          error: "tenant_not_found",
-          callerPhone,
-          expectedKey: `client:${callerPhone}`,
-        },
-        404,
-      );
-    }
-
-    const cabmeUrl = buildCabmeUrl(tenant, env);
-    const cabmeHeaders = {};
-    if (tenant.cabmeToken) {
-      cabmeHeaders.authorization = `Bearer ${tenant.cabmeToken}`;
-    }
-    if (tenant.cabmeApiKey) {
-      cabmeHeaders["x-api-key"] = tenant.cabmeApiKey;
-    }
-
-    const cabmeResponse = await fetch(cabmeUrl, {
-      method: "POST",
-      headers: cabmeHeaders,
-      body: buildCabmeFormData(payload, tenant, callerPhone, env),
-    });
-
-    const cabmeBody = await parseResponse(cabmeResponse);
-
-    if (!cabmeResponse.ok) {
-      return json(
-        {
-          ok: false,
-          error: "cabme_request_failed",
-          status: cabmeResponse.status,
-          cabmeUrl,
-          response: cabmeBody,
-        },
-        502,
-      );
-    }
-
-    const driverPhone = extractDriverPhone(cabmeBody);
-    let whatsapp = { sent: false, reason: "driver_phone_not_found" };
-    if (driverPhone) {
-      whatsapp = await sendWhatsappToDriver(driverPhone, payload, tenant, cabmeBody, env);
-    }
-
-    return json({
-      ok: true,
-      tenant: tenant.tenantId || tenant.companyName || tenant.keyPhone,
-      callerPhone,
-      cabme: {
-        status: cabmeResponse.status,
-        response: cabmeBody,
-      },
-      whatsapp,
-    });
+  }
 }
+
+async function sendTextToCustomer(cfg, number, text) {
+  return zproPost(cfg, "", {
+    body: text,
+    number,
+    isClosed: false,
+  });
+  await kv.put(`${TENANT_PREFIX}${normalized}`, JSON.stringify(payload));
+  return payload;
+}
+
+if (!env.CLIENTS_KV) {
+  return json({ ok: false, error: "CLIENTS_KV_not_bound" }, 500);
+}
+
+let payload;
+try {
+  payload = await request.json();
+} catch {
+  return json({ ok: false, error: "invalid_json_payload" }, 400);
+}
+
+const callerPhone = extractPhone(payload);
+if (!callerPhone) {
+  return json({ ok: false, error: "caller_phone_not_found" }, 400);
+}
+
+const tenant = await loadClientConfig(env.CLIENTS_KV, callerPhone);
+if (!tenant) {
+  return json(
+    {
+      ok: false,
+      error: "tenant_not_found",
+      callerPhone,
+      expectedKey: `client:${callerPhone}`,
+    },
+    404,
+  );
+}
+
+const cabmeUrl = buildCabmeUrl(tenant, env);
+const cabmeHeaders = {};
+if (tenant.cabmeToken) {
+  cabmeHeaders.authorization = `Bearer ${tenant.cabmeToken}`;
+}
+if (tenant.cabmeApiKey) {
+  cabmeHeaders["x-api-key"] = tenant.cabmeApiKey;
+}
+
+const cabmeResponse = await fetch(cabmeUrl, {
+  method: "POST",
+  headers: cabmeHeaders,
+  body: buildCabmeFormData(payload, tenant, callerPhone, env),
+});
+
+const cabmeBody = await parseResponse(cabmeResponse);
+
+if (!cabmeResponse.ok) {
+  return json(
+    {
+      ok: false,
+      error: "cabme_request_failed",
+      status: cabmeResponse.status,
+      cabmeUrl,
+      response: cabmeBody,
+    },
+    502,
+  );
+}
+
+const driverPhone = extractDriverPhone(cabmeBody);
+let whatsapp = { sent: false, reason: "driver_phone_not_found" };
+if (driverPhone) {
+  whatsapp = await sendWhatsappToDriver(driverPhone, payload, tenant, cabmeBody, env);
+}
+
+return json({
+  ok: true,
+  tenant: tenant.tenantId || tenant.companyName || tenant.keyPhone,
+  callerPhone,
+  cabme: {
+    status: cabmeResponse.status,
+    response: cabmeBody,
+  },
+  whatsapp,
+});
