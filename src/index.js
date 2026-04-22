@@ -100,18 +100,18 @@ function redirectToPainel(secret, params = {}) {
     };
 
     await env.CLIENTS_KV.put(whatsapp, JSON.stringify(dataToStore));
-  return json({
-    ok: true,
-    cliente: {
-      nome,
-      whatsapp,
-      zproApiUrl,
-      zproInstance,
-      zproToken: "********",
-      cabmeEmail,
-      cabmeSenha: "********",
-    },
-  });
+    return json({
+      ok: true,
+      cliente: {
+        nome,
+        whatsapp,
+        zproApiUrl,
+        zproInstance,
+        zproToken: "********",
+        cabmeEmail,
+        cabmeSenha: "********",
+      },
+    });
   }
 
   async function handlePainelGet(request, env) {
@@ -192,32 +192,34 @@ function redirectToPainel(secret, params = {}) {
       phone: keyPhone,
     });
   }
+  addEventListener("fetch", event => {
+    event.respondWith(handleRequest(event.request, event));
+  });
 
-  export default {
-    async fetch(request, env) {
-      const url = new URL(request.url);
-      const path = url.pathname;
-      const method = request.method.toUpperCase();
+  async function handleRequest(request, event) {
+    const url = new URL(request.url);
+    const path = url.pathname;
+    const method = request.method.toUpperCase();
 
-      if (method === "OPTIONS") {
-        return new Response(null, {
-          status: 204,
-          headers: {
-            "access-control-allow-origin": "*",
-            "access-control-allow-methods": "GET,POST,OPTIONS",
-            "access-control-allow-headers": "content-type,authorization",
-          },
-        });
-      }
+    if (method === "OPTIONS") {
+      return new Response(null, {
+        status: 204,
+        headers: {
+          "access-control-allow-origin": "*",
+          "access-control-allow-methods": "GET,POST,OPTIONS",
+          "access-control-allow-headers": "content-type,authorization",
+        },
+      });
+    }
 
-      if (method === "GET" && path === "/") {
-        return json({
-          ok: true,
-          service: "mackflow-bridge",
-          routes: ["/webhook", "/painel"],
-          timestamp: new Date().toISOString(),
-        });
-      }
+    if (method === "GET" && path === "/") {
+      return json({
+        ok: true,
+        service: "mackflow-bridge",
+        routes: ["/webhook", "/painel"],
+        timestamp: new Date().toISOString(),
+      });
+    }
 
       if (method === "GET" && path === "/health") {
         return json({ ok: true, status: "healthy" });
