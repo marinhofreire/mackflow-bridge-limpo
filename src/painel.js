@@ -159,15 +159,29 @@ export function renderPainel({ secret = "Soufind@1234", webhookUrl = "https://br
   <script>
     const SECRET = "${safeSecret}";
 
-    async function api(path, options = {}) {
-      const sep = path.includes("?") ? "&" : "?";
-      const url = `${path}${sep}secret=${SECRET}`;
-      const response = await fetch(url, options);
+    function esc(value) {
+      return String(value || "")
+        .replaceAll("&", "&amp;")
+        .replaceAll("<", "&lt;")
+        .replaceAll(">", "&gt;")
+        .replaceAll('"', "&quot;")
+        .replaceAll("'", "&#39;");
+    }
+
+    async function api(path, options) {
+      const opts = options || {};
+      const sep = path.indexOf("?") >= 0 ? "&" : "?";
+      const url = path + sep + "secret=" + SECRET;
+      const response = await fetch(url, opts);
       const raw = await response.text();
       let data;
-      try { data = raw ? JSON.parse(raw) : null; } catch { data = { raw }; }
+      try {
+        data = raw ? JSON.parse(raw) : null;
+      } catch {
+        data = { raw: raw };
+      }
       if (!response.ok) {
-        const msg = data && data.error ? data.error : `HTTP ${response.status}`;
+        const msg = data && data.error ? data.error : "HTTP " + response.status;
         throw new Error(msg);
       }
       return data;
@@ -185,28 +199,29 @@ export function renderPainel({ secret = "Soufind@1234", webhookUrl = "https://br
           return;
         }
 
-        body.innerHTML = clientes.map((cliente) => {
-          const nome = String(cliente.nome || "");
-          const whatsapp = String(cliente.whatsapp || "");
-          const apiId = String(cliente.zproApiId || "");
-          return `
-            <tr>
-              <td>${nome}</td>
-              <td>${whatsapp}</td>
-              <td>${apiId}</td>
-              <td class="ok">Online</td>
-              <td><button class="btn-danger" data-whatsapp="${whatsapp}">Excluir</button></td>
-            </tr>
-          `;
-        }).join("");
+        let html = "";
+        for (const cliente of clientes) {
+          const nome = esc(cliente.nome || "");
+          const whatsapp = esc(cliente.whatsapp || "");
+          const apiId = esc(cliente.zproApiId || "");
+          html += '<tr>' +
+            '<td>' + nome + '</td>' +
+            '<td>' + whatsapp + '</td>' +
+            '<td>' + apiId + '</td>' +
+            '<td class="ok">Online</td>' +
+            '<td><button class="btn-danger" data-whatsapp="' + whatsapp + '">Excluir</button></td>' +
+          '</tr>';
+        }
+        body.innerHTML = html;
 
-        body.querySelectorAll("button[data-whatsapp]").forEach((btn) => {
-          btn.addEventListener("click", async () => {
-            const whatsapp = btn.getAttribute("data-whatsapp");
+        const buttons = body.querySelectorAll("button[data-whatsapp]");
+        buttons.forEach(function (btn) {
+          btn.addEventListener("click", async function () {
+            const whatsapp = btn.getAttribute("data-whatsapp") || "";
             if (!whatsapp) return;
-            if (!confirm(`Excluir cliente ${whatsapp}?`)) return;
+            if (!confirm("Excluir cliente " + whatsapp + "?")) return;
             try {
-              await api(`/api/clientes?whatsapp=${encodeURIComponent(whatsapp)}`, { method: "DELETE" });
+              await api("/api/clientes?whatsapp=" + encodeURIComponent(whatsapp), { method: "DELETE" });
               await carregarClientes();
             } catch (error) {
               alert(error.message || "Falha ao excluir");
@@ -214,11 +229,11 @@ export function renderPainel({ secret = "Soufind@1234", webhookUrl = "https://br
           });
         });
       } catch (error) {
-        body.innerHTML = `<tr><td colspan="5" style="color:#fca5a5;">Erro: ${error.message}</td></tr>`;
+        body.innerHTML = '<tr><td colspan="5" style="color:#fca5a5;">Erro: ' + esc(error.message || "falha") + '</td></tr>';
       }
     }
 
-    document.getElementById("form-cliente").addEventListener("submit", async (event) => {
+    document.getElementById("form-cliente").addEventListener("submit", async function (event) {
       event.preventDefault();
       const form = event.currentTarget;
       const msg = document.getElementById("form-msg");
@@ -237,7 +252,7 @@ export function renderPainel({ secret = "Soufind@1234", webhookUrl = "https://br
         form.reset();
         await carregarClientes();
       } catch (error) {
-        msg.textContent = `Erro: ${error.message || "falha ao salvar"}`;
+        msg.textContent = "Erro: " + (error.message || "falha ao salvar");
       }
     });
 
