@@ -3,7 +3,7 @@
     "compatibility_date": "2026-04-20",
     "main": "src/index.js",
     "vars": {
-        "ADMIN_SECRET_PASSWORD": "Soufind@1234",
+        "ADMIN_SECRET_PASSWORD": "troque_essa_senha_em_producao",
         "ZPRO_BASE_URL": "https://api.soucall.com.br",
         "ZPRO_API_ID": "cf3aaa7b-236c-4267-be5a-5a62b0882264",
         "ZPRO_SEND_URL": "https://api.soucall.com.br/send-message",
