@@ -35,12 +35,41 @@ function renderPainel({ secret = "", client = {}, selectedPhone = "", saved = fa
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>MackFlow Painel</title>
     <script src="https://cdn.tailwindcss.com"></script>
-  </head>
+    <script>
+      async function carregarClientes() {
+        const el = document.getElementById('clientes-lista');
+        el.innerHTML = '<div class="text-slate-500">Carregando...</div>';
+        try {
+          const resp = await fetch('/painel/clientes');
+          const data = await resp.json();
+          if (data.ok && Array.isArray(data.clientes)) {
+            if (data.clientes.length === 0) {
+              el.innerHTML = '<div class="text-slate-500">Nenhum cliente cadastrado.</div>';
+            } else {
+              el.innerHTML = `< table class="min-w-full text-sm" ><thead><tr><th class="text-left">Telefone</th><th class="text-left">Empresa</th><th class="text-left">Tenant</th><th class="text-left">WhatsApp</th></tr></thead><tbody>` +
+                data.clientes.map(c => `<tr><td class="pr-4">${c.keyPhone||''}</td><td class="pr-4">${c.companyName||''}</td><td class="pr-4">${c.tenantId||''}</td><td class="pr-4">${c.whatsapp||''}</td></tr>`).join('') +
+                '</tbody></table > ';
+}
+          } else {
+  el.innerHTML = '<div class="text-red-600">Erro ao carregar clientes.</div>';
+}
+        } catch (e) {
+  el.innerHTML = '<div class="text-red-600">Erro ao carregar clientes.</div>';
+}
+      }
+window.addEventListener('DOMContentLoaded', carregarClientes);
+    </script >
+  </head >
   <body class="min-h-screen bg-slate-100 text-slate-900">
     <main class="mx-auto max-w-5xl space-y-6 px-4 py-8 sm:px-6 lg:px-8">
       <section class="rounded-2xl bg-white p-6 shadow-sm ring-1 ring-slate-200">
         <h1 class="text-2xl font-bold">MackFlow Painel</h1>
         <p class="mt-2 text-sm text-slate-600">Central de conexões para Configuração SouCall e Configuração SouFind.</p>
+      </section>
+
+      <section class="rounded-2xl bg-white p-6 shadow-sm ring-1 ring-slate-200">
+        <h2 class="text-lg font-semibold">Clientes cadastrados</h2>
+        <div id="clientes-lista" class="mt-4"></div>
       </section>
 
       <section class="rounded-2xl bg-white p-6 shadow-sm ring-1 ring-slate-200">
@@ -63,12 +92,12 @@ function renderPainel({ secret = "", client = {}, selectedPhone = "", saved = fa
         <form class="mt-4 grid gap-4 sm:grid-cols-[1fr_auto]" method="GET" action="/painel">
           <input type="hidden" name="secret" value="${escapeHtml(secret)}" />
           ${inputField({
-    name: "phone",
-    label: "Telefone da empresa (chave KV)",
-    value: selectedPhone,
-    required: true,
-    placeholder: "5511999999999",
-  })}
+            name: "phone",
+            label: "Telefone da empresa (chave KV)",
+            value: selectedPhone,
+            required: true,
+            placeholder: "5511999999999",
+          })}
           <button class="mt-7 h-12 rounded-xl bg-slate-900 px-6 text-sm font-semibold text-white hover:bg-slate-800" type="submit">Carregar</button>
         </form>
       </section>
@@ -100,11 +129,11 @@ function renderPainel({ secret = "", client = {}, selectedPhone = "", saved = fa
             ${inputField({ name: "totalChildren", label: "Total crianças", value: client.totalChildren || "0" })}
           </div>
           ${textAreaField({
-    name: "driverMessageTemplate",
-    label: "Template WhatsApp para motorista",
-    value: client.driverMessageTemplate || "Nova ocorrencia enviada para voce. Cliente: {{customer_phone}}. Protocolo: {{protocol}}.",
-    placeholder: "Use {{customer_phone}} e {{protocol}} no texto.",
-  })}
+            name: "driverMessageTemplate",
+            label: "Template WhatsApp para motorista",
+            value: client.driverMessageTemplate || "Nova ocorrencia enviada para voce. Cliente: {{customer_phone}}. Protocolo: {{protocol}}.",
+            placeholder: "Use {{customer_phone}} e {{protocol}} no texto.",
+          })}
           <button class="h-12 rounded-xl bg-blue-600 px-6 text-sm font-semibold text-white hover:bg-blue-500" type="submit">Salvar no CLIENTS_KV</button>
         </form>
       </section>
@@ -118,7 +147,7 @@ function renderPainel({ secret = "", client = {}, selectedPhone = "", saved = fa
       </section>
     </main>
   </body>
-</html>`;
+</html > `;
 }
 
 // Export para uso no Worker

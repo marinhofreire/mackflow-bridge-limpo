@@ -38,6 +38,7 @@ async function handleRequest(request, event) {
     return handleWebhook(request, event?.env || {});
   }
 
+
   // Painel na raiz
   if (method === "GET" && (path === "/" || path === "/painel")) {
     const urlObj = new URL(request.url);
@@ -49,6 +50,28 @@ async function handleRequest(request, event) {
     return new Response(renderPainel({ secret, selectedPhone: phone, saved, error }), {
       headers: { "content-type": "text/html; charset=utf-8" },
     });
+  }
+
+  // Nova rota: listar clientes
+  if (method === "GET" && path === "/painel/clientes") {
+    if (!event?.env?.CLIENTS_KV) {
+      return json({ ok: false, error: "CLIENTS_KV_not_bound" }, 500);
+    }
+    // Busca todas as chaves que começam com client:
+    const list = await event.env.CLIENTS_KV.list({ prefix: "client:" });
+    const clientes = [];
+    for (const key of list.keys) {
+      const data = await event.env.CLIENTS_KV.get(key.name, { type: "json" });
+      if (data && typeof data === "object") {
+        clientes.push({
+          keyPhone: data.keyPhone,
+          companyName: data.companyName,
+          tenantId: data.tenantId,
+          whatsapp: data.whatsapp,
+        });
+      }
+    }
+    return json({ ok: true, clientes });
   }
 
   return json({ ok: false, error: "not_found" }, 404);
