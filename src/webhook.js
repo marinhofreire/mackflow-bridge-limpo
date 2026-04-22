@@ -247,14 +247,7 @@ function buildCabmeFormData(payload, tenant, callerPhone, env) {
   return formData;
 }
 
-async function parseResponse(response) {
-  const text = await response.text();
-  try {
-    return JSON.parse(text);
-  } catch {
-    return text;
-  }
-}
+
 
 function extractDriverPhone(cabmeResponse) {
   const candidates = [
@@ -388,14 +381,7 @@ export async function saveClientConfig(kv, phone, config) {
   return payloadToSave;
 }
 
-async function parseResponse(response) {
-  const raw = await response.text();
-  try {
-    return JSON.parse(raw);
-  } catch {
-    return raw;
-  }
-}
+
 
 async function zproPost(cfg, endpoint, body) {
   if (!cfg.ok) {
@@ -538,78 +524,4 @@ async function sendTextToCustomer(cfg, number, text) {
   return payload;
 }
 
-if (!env.CLIENTS_KV) {
-  return json({ ok: false, error: "CLIENTS_KV_not_bound" }, 500);
-}
 
-let payload;
-try {
-  payload = await request.json();
-} catch {
-  return json({ ok: false, error: "invalid_json_payload" }, 400);
-}
-
-const callerPhone = extractPhone(payload);
-if (!callerPhone) {
-  return json({ ok: false, error: "caller_phone_not_found" }, 400);
-}
-
-const tenant = await loadClientConfig(env.CLIENTS_KV, callerPhone);
-if (!tenant) {
-  return json(
-    {
-      ok: false,
-      error: "tenant_not_found",
-      callerPhone,
-      expectedKey: `client:${callerPhone}`,
-    },
-    404,
-  );
-}
-
-const cabmeUrl = buildCabmeUrl(tenant, env);
-const cabmeHeaders = {};
-if (tenant.cabmeToken) {
-  cabmeHeaders.authorization = `Bearer ${tenant.cabmeToken}`;
-}
-if (tenant.cabmeApiKey) {
-  cabmeHeaders["x-api-key"] = tenant.cabmeApiKey;
-}
-
-const cabmeResponse = await fetch(cabmeUrl, {
-  method: "POST",
-  headers: cabmeHeaders,
-  body: buildCabmeFormData(payload, tenant, callerPhone, env),
-});
-
-const cabmeBody = await parseResponse(cabmeResponse);
-
-if (!cabmeResponse.ok) {
-  return json(
-    {
-      ok: false,
-      error: "cabme_request_failed",
-      status: cabmeResponse.status,
-      cabmeUrl,
-      response: cabmeBody,
-    },
-    502,
-  );
-}
-
-const driverPhone = extractDriverPhone(cabmeBody);
-let whatsapp = { sent: false, reason: "driver_phone_not_found" };
-if (driverPhone) {
-  whatsapp = await sendWhatsappToDriver(driverPhone, payload, tenant, cabmeBody, env);
-}
-
-return json({
-  ok: true,
-  tenant: tenant.tenantId || tenant.companyName || tenant.keyPhone,
-  callerPhone,
-  cabme: {
-    status: cabmeResponse.status,
-    response: cabmeBody,
-  },
-  whatsapp,
-});
