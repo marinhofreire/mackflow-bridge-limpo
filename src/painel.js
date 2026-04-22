@@ -304,21 +304,8 @@ function escapeHtml(value = "") {
         </script>
       </body>
     </html>`;
-=======
-  <head>
-    <meta charset="UTF-8" />
-    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>Mackflow Bridge - Painel</title>
-    <script src="https://cdn.tailwindcss.com"></script>
-  </head>
-  <body class="min-h-screen bg-slate-100 text-slate-900">
-    <main class="mx-auto max-w-5xl space-y-6 px-4 py-8 sm:px-6 lg:px-8">
-      <section class="rounded-2xl bg-white p-6 shadow-sm ring-1 ring-slate-200">
-        <h1 class="text-2xl font-bold tracking-tight">Mackflow Bridge - Painel Multi-Tenant</h1>
-        <p class="mt-2 text-sm text-slate-600">Edite e salve credenciais por numero de WhatsApp no KV namespace <code>CLIENTS_KV</code>.</p>
-      </section>
 
-      ${statusHtml}
+      ${ statusHtml }
 
       <section class="rounded-2xl bg-white p-6 shadow-sm ring-1 ring-slate-200">
         <h2 class="text-lg font-semibold">Buscar cliente</h2>
@@ -469,8 +456,8 @@ function escapeHtml(value = "") {
           </button>
         </form>
       </section>
-    </main>
-  </body>
-</html>`;
+    </main >
+  </body >
+</html > `;
 >>>>>>> parent of 0d452c3 (Deploy final - Integração ZPRO e OpenAI)
 }
