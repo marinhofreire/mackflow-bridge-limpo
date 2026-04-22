@@ -1,148 +1,248 @@
-export function renderPainel({ webhookUrl = "https://bridge.mackflow.com.br/webhook" } = {}) {
+function escapeHtml(value = "") {
+  return String(value)
+    .replaceAll("&", "&amp;")
+    .replaceAll("<", "&lt;")
+    .replaceAll(">", "&gt;")
+    .replaceAll('"', "&quot;")
+    .replaceAll("'", "&#39;");
+}
+
+export function renderPainel({ secret = "Soufind@1234", webhookUrl = "https://bridge.mackflow.com.br/webhook" } = {}) {
+  const safeSecret = encodeURIComponent(secret);
+
   return `<!doctype html>
 <html lang="pt-BR">
 <head>
   <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>MackFlow Bridge - Status</title>
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <title>MackFlow Bridge</title>
   <style>
     :root {
-      --bg: #0b1020;
-      --card: #111831;
-      --card-2: #0f1730;
-      --line: #1f2a4d;
-      --text: #e8ecff;
-      --muted: #95a1c8;
+      --bg: #090d1a;
+      --card: #111933;
+      --line: #25325f;
+      --text: #eef2ff;
+      --muted: #9aa9d6;
+      --accent: #4fd1c5;
       --ok: #22c55e;
-      --accent: #5eead4;
+      --danger: #ef4444;
     }
-
     * { box-sizing: border-box; }
-
     body {
       margin: 0;
-      font-family: "Segoe UI", "Helvetica Neue", sans-serif;
-      background: radial-gradient(1200px 600px at 20% -10%, #1b2752 0%, var(--bg) 45%);
+      font-family: "Segoe UI", "Helvetica Neue", Arial, sans-serif;
+      background: radial-gradient(900px 500px at 15% 0%, #1a2754 0%, var(--bg) 50%);
       color: var(--text);
-      min-height: 100vh;
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      padding: 24px;
-    }
-
-    .wrap {
-      width: min(980px, 100%);
-      background: linear-gradient(180deg, var(--card), var(--card-2));
-      border: 1px solid var(--line);
-      border-radius: 20px;
-      padding: 32px;
-      box-shadow: 0 18px 50px rgba(0, 0, 0, 0.45);
-    }
-
-    h1 {
-      margin: 0 0 8px 0;
-      font-size: clamp(28px, 4vw, 42px);
-      font-weight: 800;
-      letter-spacing: 0.3px;
-      text-align: center;
-    }
-
-    .sub {
-      text-align: center;
-      color: var(--muted);
-      margin: 0 0 24px 0;
-    }
-
-    .url-box {
-      border: 1px solid #2f3d73;
-      background: #0a132c;
-      border-radius: 16px;
       padding: 22px;
-      text-align: center;
-      margin-bottom: 28px;
     }
-
-    .url-label {
-      color: var(--muted);
-      font-size: 14px;
-      margin-bottom: 10px;
-      text-transform: uppercase;
-      letter-spacing: 1px;
-    }
-
-    .url-value {
-      color: var(--accent);
-      font-weight: 800;
-      font-size: clamp(16px, 3vw, 30px);
-      word-break: break-all;
-    }
-
-    table {
-      width: 100%;
-      border-collapse: collapse;
-      overflow: hidden;
-      border-radius: 14px;
+    .wrap { max-width: 1080px; margin: 0 auto; display: grid; gap: 18px; }
+    .card {
+      background: linear-gradient(180deg, #121a35, #0f1730);
       border: 1px solid var(--line);
+      border-radius: 16px;
+      padding: 18px;
+      box-shadow: 0 12px 30px rgba(0, 0, 0, 0.35);
     }
-
-    thead th {
-      text-align: left;
-      background: #0d1734;
-      color: #c8d4ff;
-      font-size: 13px;
-      letter-spacing: 0.8px;
-      text-transform: uppercase;
-      padding: 14px 16px;
-    }
-
-    tbody td {
-      padding: 16px;
-      border-top: 1px solid var(--line);
-      font-size: 15px;
-    }
-
-    .status-ok {
-      color: var(--ok);
+    h1 { margin: 0; font-size: clamp(26px, 3.4vw, 40px); }
+    .muted { color: var(--muted); }
+    .webhook {
+      margin-top: 10px;
+      border: 1px solid #30417c;
+      border-radius: 12px;
+      background: #0b142d;
+      padding: 14px;
+      font-size: clamp(15px, 2.2vw, 28px);
       font-weight: 700;
+      color: var(--accent);
+      word-break: break-all;
+      text-align: center;
     }
+    .grid { display: grid; gap: 12px; grid-template-columns: repeat(2, minmax(0, 1fr)); }
+    @media (max-width: 900px) { .grid { grid-template-columns: 1fr; } }
+    label { display: block; font-size: 13px; color: var(--muted); margin-bottom: 6px; }
+    input {
+      width: 100%;
+      border: 1px solid #2f3c72;
+      border-radius: 10px;
+      background: #0d1631;
+      color: var(--text);
+      padding: 11px;
+      outline: none;
+    }
+    input:focus { border-color: #4fd1c5; }
+    button {
+      border: 0;
+      border-radius: 10px;
+      padding: 11px 16px;
+      font-weight: 700;
+      cursor: pointer;
+    }
+    .btn-primary { background: #22c55e; color: #06120a; }
+    .btn-danger { background: var(--danger); color: #fff; }
+    .msg { margin-top: 10px; font-size: 14px; color: var(--muted); min-height: 20px; }
+    table { width: 100%; border-collapse: collapse; margin-top: 10px; }
+    th, td { padding: 10px; border-bottom: 1px solid #1f2b53; text-align: left; }
+    th { color: #c9d6ff; font-size: 13px; text-transform: uppercase; }
+    .ok { color: var(--ok); font-weight: 700; }
   </style>
 </head>
 <body>
   <main class="wrap">
-    <h1>MackFlow Bridge - Status</h1>
-    <p class="sub">Painel operacional</p>
-
-    <section class="url-box">
-      <div class="url-label">URL do Webhook</div>
-      <div class="url-value">${webhookUrl}</div>
+    <section class="card">
+      <h1>MackFlow Bridge</h1>
+      <div class="muted">Webhook ativo para SouCall</div>
+      <div class="webhook">${escapeHtml(webhookUrl)}</div>
     </section>
 
-    <section>
+    <section class="card">
+      <h2 style="margin:0 0 12px 0;">Cadastro de Cliente</h2>
+      <form id="form-cliente" class="grid">
+        <div>
+          <label>Nome da Empresa</label>
+          <input name="nome" required />
+        </div>
+        <div>
+          <label>WhatsApp (chave KV)</label>
+          <input name="whatsapp" required placeholder="5511999999999" />
+        </div>
+        <div>
+          <label>URL API SouCall</label>
+          <input name="zproApiUrl" required placeholder="https://api.soucall.com.br/v2/api/external/SEU_API_ID" />
+        </div>
+        <div>
+          <label>ApiID SouCall (opcional se vier na URL)</label>
+          <input name="zproApiId" placeholder="ed417d20-2c5f-4f7a-888d-b8ab6f34ac44" />
+        </div>
+        <div>
+          <label>Token SouCall</label>
+          <input name="zproToken" required />
+        </div>
+        <div>
+          <label>OpenAI Key (opcional)</label>
+          <input name="openaiKey" />
+        </div>
+        <div>
+          <label>Email SouFind</label>
+          <input name="cabmeEmail" />
+        </div>
+        <div>
+          <label>Senha SouFind</label>
+          <input name="cabmeSenha" />
+        </div>
+        <div style="grid-column:1/-1;">
+          <button class="btn-primary" type="submit">Salvar Cliente</button>
+          <span id="form-msg" class="msg"></span>
+        </div>
+      </form>
+    </section>
+
+    <section class="card">
+      <h2 style="margin:0;">Clientes Cadastrados</h2>
+      <div class="muted">Origem: CLIENTS_KV</div>
       <table>
         <thead>
           <tr>
-            <th>Servico</th>
+            <th>Empresa</th>
+            <th>WhatsApp</th>
+            <th>ApiID</th>
             <th>Status</th>
+            <th>Ação</th>
           </tr>
         </thead>
-        <tbody>
-          <tr>
-            <td>Z-PRO</td>
-            <td class="status-ok">Online</td>
-          </tr>
-          <tr>
-            <td>OpenAI</td>
-            <td class="status-ok">Online</td>
-          </tr>
-          <tr>
-            <td>Cabme</td>
-            <td class="status-ok">Online</td>
-          </tr>
+        <tbody id="clientes-body">
+          <tr><td colspan="5" class="muted">Carregando...</td></tr>
         </tbody>
       </table>
     </section>
   </main>
+
+  <script>
+    const SECRET = "${safeSecret}";
+
+    async function api(path, options = {}) {
+      const sep = path.includes("?") ? "&" : "?";
+      const url = `${path}${sep}secret=${SECRET}`;
+      const response = await fetch(url, options);
+      const raw = await response.text();
+      let data;
+      try { data = raw ? JSON.parse(raw) : null; } catch { data = { raw }; }
+      if (!response.ok) {
+        const msg = data && data.error ? data.error : `HTTP ${response.status}`;
+        throw new Error(msg);
+      }
+      return data;
+    }
+
+    async function carregarClientes() {
+      const body = document.getElementById("clientes-body");
+      body.innerHTML = '<tr><td colspan="5" class="muted">Carregando...</td></tr>';
+      try {
+        const data = await api("/api/clientes");
+        const clientes = Array.isArray(data.clientes) ? data.clientes : [];
+
+        if (!clientes.length) {
+          body.innerHTML = '<tr><td colspan="5" class="muted">Nenhum cliente cadastrado.</td></tr>';
+          return;
+        }
+
+        body.innerHTML = clientes.map((cliente) => {
+          const nome = String(cliente.nome || "");
+          const whatsapp = String(cliente.whatsapp || "");
+          const apiId = String(cliente.zproApiId || "");
+          return `
+            <tr>
+              <td>${nome}</td>
+              <td>${whatsapp}</td>
+              <td>${apiId}</td>
+              <td class="ok">Online</td>
+              <td><button class="btn-danger" data-whatsapp="${whatsapp}">Excluir</button></td>
+            </tr>
+          `;
+        }).join("");
+
+        body.querySelectorAll("button[data-whatsapp]").forEach((btn) => {
+          btn.addEventListener("click", async () => {
+            const whatsapp = btn.getAttribute("data-whatsapp");
+            if (!whatsapp) return;
+            if (!confirm(`Excluir cliente ${whatsapp}?`)) return;
+            try {
+              await api(`/api/clientes?whatsapp=${encodeURIComponent(whatsapp)}`, { method: "DELETE" });
+              await carregarClientes();
+            } catch (error) {
+              alert(error.message || "Falha ao excluir");
+            }
+          });
+        });
+      } catch (error) {
+        body.innerHTML = `<tr><td colspan="5" style="color:#fca5a5;">Erro: ${error.message}</td></tr>`;
+      }
+    }
+
+    document.getElementById("form-cliente").addEventListener("submit", async (event) => {
+      event.preventDefault();
+      const form = event.currentTarget;
+      const msg = document.getElementById("form-msg");
+      msg.textContent = "Salvando...";
+
+      const formData = new FormData(form);
+      const payload = Object.fromEntries(formData.entries());
+
+      try {
+        await api("/api/clientes", {
+          method: "POST",
+          headers: { "content-type": "application/json" },
+          body: JSON.stringify(payload),
+        });
+        msg.textContent = "Cliente salvo com sucesso.";
+        form.reset();
+        await carregarClientes();
+      } catch (error) {
+        msg.textContent = `Erro: ${error.message || "falha ao salvar"}`;
+      }
+    });
+
+    carregarClientes();
+  </script>
 </body>
 </html>`;
 }
