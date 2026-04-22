@@ -239,3 +239,4 @@ function redirectToPainel(secret, params = {}) {
 
     return json({ ok: false, error: "not_found" }, 404);
   }
+
