@@ -1,5 +1,5 @@
 {
-    "name": "mackflow-bridge",
+    "name": "mackflow-bridge-limpo",
     "compatibility_date": "2026-04-20",
     "main": "src/index.js",
     "vars": {
