@@ -7,17 +7,6 @@ export async function handleWebhook(request, env) {
   });
 }
 
-export async function loadClientConfig(kv, phone) {
-  if (!kv || !phone) return null;
-  const raw = await kv.get(phone);
-  return raw ? JSON.parse(raw) : null;
-}
-
-export async function saveClientConfig(kv, phone, config) {
-  if (!kv || !phone) return false;
-  await kv.put(phone, JSON.stringify(config));
-  return true;
-}
 const TENANT_PREFIX = "client:";
 const DEFAULT_SOUCALL_ORIGIN = "https://api.soucall.com.br";
 
@@ -470,11 +459,10 @@ export async function saveClientConfig(kv, phone, config) {
       number,
       isClosed: false,
     });
-  await kv.put(`${TENANT_PREFIX}${normalized}`, JSON.stringify(payload));
-  return payload;
+    await kv.put(`${TENANT_PREFIX}${normalized}`, JSON.stringify(payload));
+    return payload;
   }
 
-  export async function handleWebhook(request, env) {
     if (!env.CLIENTS_KV) {
       return json({ ok: false, error: "CLIENTS_KV_not_bound" }, 500);
     }
