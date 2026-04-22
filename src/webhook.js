@@ -324,7 +324,6 @@ export async function saveClientConfig(kv, phone, config) {
     updatedAt: new Date().toISOString(),
   };
 
-<<<<<<< HEAD
   async function parseResponse(response) {
     const raw = await response.text();
     try {
@@ -471,10 +470,8 @@ export async function saveClientConfig(kv, phone, config) {
       number,
       isClosed: false,
     });
-=======
   await kv.put(`${TENANT_PREFIX}${normalized}`, JSON.stringify(payload));
   return payload;
->>>>>>> parent of 0d452c3 (Deploy final - Integração ZPRO e OpenAI)
   }
 
   export async function handleWebhook(request, env) {

@@ -459,5 +459,4 @@ function escapeHtml(value = "") {
     </main >
   </body >
 </html > `;
->>>>>>> parent of 0d452c3 (Deploy final - Integração ZPRO e OpenAI)
 }
