@@ -122,12 +122,32 @@ export function renderPainel({ secret = "Soufind@1234", webhookUrl = "https://br
           <input name="openaiKey" />
         </div>
         <div>
-          <label>Email SouFind</label>
+          <label>Email CabMe (login)</label>
           <input name="cabmeEmail" />
         </div>
         <div>
-          <label>Senha SouFind</label>
-          <input name="cabmeSenha" />
+          <label>Senha CabMe (login)</label>
+          <input name="cabmeSenha" type="password" />
+        </div>
+        <div>
+          <label>CabMe Token Bearer (opcional, sobrepõe login)</label>
+          <input name="cabmeToken" />
+        </div>
+        <div>
+          <label>CabMe API Key (opcional)</label>
+          <input name="cabmeApiKey" />
+        </div>
+        <div>
+          <label>CabMe Base URL</label>
+          <input name="cabmeBaseUrl" placeholder="https://console.mackflow.com.br/api/" />
+        </div>
+        <div>
+          <label>CabMe User ID</label>
+          <input name="userId" placeholder="1" />
+        </div>
+        <div>
+          <label>Vehicle Type ID</label>
+          <input name="vehicleTypeId" placeholder="1" />
         </div>
         <div style="grid-column:1/-1;">
           <button class="btn-primary" type="submit">Salvar Cliente</button>

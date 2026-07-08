@@ -1,5 +1,6 @@
 import { renderPainel } from "./painel.js";
 import { handleWebhook } from "./webhook.js";
+import { handlePublicRescue, handleChatflowDemand, handleDemoClose } from "./soufind.js";
 
 const ADMIN_PANEL_SECRET = "Soufind@1234";
 const KV_PREFIX = "client:";
@@ -120,6 +121,11 @@ async function saveClient(request, env) {
   const openaiKey = String(body.openaiKey || "").trim();
   const cabmeEmail = String(body.cabmeEmail || "").trim();
   const cabmeSenha = String(body.cabmeSenha || "").trim();
+  const cabmeToken = String(body.cabmeToken || "").trim();
+  const cabmeApiKey = String(body.cabmeApiKey || "").trim();
+  const cabmeBaseUrl = String(body.cabmeBaseUrl || "").trim();
+  const userId = String(body.userId || "").trim();
+  const vehicleTypeId = String(body.vehicleTypeId || "").trim();
 
   if (!nome || !whatsapp || !zproToken || (!zproApiId && !zproApiUrl)) {
     return json({
@@ -138,6 +144,11 @@ async function saveClient(request, env) {
     openaiKey,
     cabmeEmail,
     cabmeSenha,
+    cabmeToken,
+    cabmeApiKey,
+    cabmeBaseUrl,
+    userId,
+    vehicleTypeId,
     updatedAt: new Date().toISOString(),
   };
 
@@ -173,6 +184,19 @@ export default {
 
     if (method === "POST" && (path === "/" || path === "/webhook")) {
       return handleWebhook(request, env);
+    }
+
+    // SouFind endpoints
+    if (method === "POST" && path === "/api/bridge/soufind/public-rescue") {
+      return handlePublicRescue(request, env);
+    }
+
+    if (method === "POST" && (path === "/api/bridge/soufind/chatflow" || path === "/api/bridge/chatflow/demand")) {
+      return handleChatflowDemand(request, env);
+    }
+
+    if (method === "POST" && path === "/api/bridge/soufind/demo-close") {
+      return handleDemoClose(request, env);
     }
 
     if (method === "GET" && path === "/health") {
