@@ -60,7 +60,7 @@ export function renderPainel({ secret = "Soufind@1234", webhookUrl = "https://br
     .grid { display: grid; gap: 12px; grid-template-columns: repeat(2, minmax(0, 1fr)); }
     @media (max-width: 900px) { .grid { grid-template-columns: 1fr; } }
     label { display: block; font-size: 13px; color: var(--muted); margin-bottom: 6px; }
-    input {
+    input, textarea {
       width: 100%;
       border: 1px solid #2f3c72;
       border-radius: 10px;
@@ -68,8 +68,10 @@ export function renderPainel({ secret = "Soufind@1234", webhookUrl = "https://br
       color: var(--text);
       padding: 11px;
       outline: none;
+      font-family: inherit;
+      resize: vertical;
     }
-    input:focus { border-color: #4fd1c5; }
+    input:focus, textarea:focus { border-color: #4fd1c5; }
     button {
       border: 0;
       border-radius: 10px;
@@ -148,6 +150,14 @@ export function renderPainel({ secret = "Soufind@1234", webhookUrl = "https://br
         <div>
           <label>Vehicle Type ID</label>
           <input name="vehicleTypeId" placeholder="1" />
+        </div>
+        <div style="grid-column:1/-1;">
+          <label>Prompt de IA (vazio = usa o padrao de resgate do SouFind)</label>
+          <textarea name="aiSystemPrompt" rows="3" placeholder="Voce e o assistente de rastreamento do SouTracking. Responda duvidas sobre status, localizacao e alertas do veiculo de forma curta e clara."></textarea>
+        </div>
+        <div>
+          <label>Limite de caracteres da resposta</label>
+          <input name="aiMaxReplyChars" placeholder="150" />
         </div>
         <div style="grid-column:1/-1;">
           <button class="btn-primary" type="submit">Salvar Cliente</button>

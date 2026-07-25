@@ -1,6 +1,6 @@
 import { renderPainel } from "./painel.js";
 import { handleWebhook } from "./webhook.js";
-import { handlePublicRescue, handleChatflowDemand, handleDemoClose } from "./soufind.js";
+import { handlePublicRescue, handleChatflowDemand, handleDemoClose, handleClienteLogin } from "./soufind.js";
 
 const ADMIN_PANEL_SECRET = "Soufind@1234";
 const KV_PREFIX = "client:";
@@ -126,6 +126,11 @@ async function saveClient(request, env) {
   const cabmeBaseUrl = String(body.cabmeBaseUrl || "").trim();
   const userId = String(body.userId || "").trim();
   const vehicleTypeId = String(body.vehicleTypeId || "").trim();
+  // Prompt de IA por cliente: sem isso, cai no prompt fixo de resgate do
+  // SouFind (SYSTEM_PROMPT em webhook.js). Canais de outros produtos
+  // (ex.: SouTracking) definem o proprio aqui.
+  const aiSystemPrompt = String(body.aiSystemPrompt || "").trim();
+  const aiMaxReplyChars = Number(body.aiMaxReplyChars) || 0;
 
   if (!nome || !whatsapp || !zproToken || (!zproApiId && !zproApiUrl)) {
     return json({
@@ -149,6 +154,8 @@ async function saveClient(request, env) {
     cabmeBaseUrl,
     userId,
     vehicleTypeId,
+    aiSystemPrompt,
+    aiMaxReplyChars,
     updatedAt: new Date().toISOString(),
   };
 
@@ -197,6 +204,10 @@ export default {
 
     if (method === "POST" && path === "/api/bridge/soufind/demo-close") {
       return handleDemoClose(request, env);
+    }
+
+    if (method === "POST" && path === "/api/bridge/cliente-login") {
+      return handleClienteLogin(request, env);
     }
 
     if (method === "GET" && path === "/health") {

@@ -196,11 +196,17 @@ async function findClientConfig(env, number, apiHint) {
   return null;
 }
 
-async function generateAIReply(messageText, openaiKey) {
+async function generateAIReply(messageText, openaiKey, systemPrompt, maxReplyChars) {
   if (!messageText) return DEFAULT_REPLY;
 
   const key = String(openaiKey || "").trim();
   if (!key) return DEFAULT_REPLY;
+
+  const prompt = String(systemPrompt || "").trim() || SYSTEM_PROMPT;
+  // O prompt padrao do SouFind pede respostas curtas (ate 150 chars) pra
+  // agilizar o resgate; clientes com prompt proprio podem precisar de mais
+  // espaco pra explicar algo (ex.: status de rastreamento).
+  const replyLimit = Number(maxReplyChars) > 0 ? Number(maxReplyChars) : 150;
 
   try {
     const response = await fetch(OPENAI_URL, {
@@ -212,17 +218,17 @@ async function generateAIReply(messageText, openaiKey) {
       body: JSON.stringify({
         model: "gpt-4o-mini",
         messages: [
-          { role: "system", content: SYSTEM_PROMPT },
+          { role: "system", content: prompt },
           { role: "user", content: messageText },
         ],
-        max_tokens: 100,
+        max_tokens: Math.max(100, Math.ceil(replyLimit / 3)),
         temperature: 0,
       }),
     });
 
     const parsed = await parseResponse(response);
     const text = firstNonEmpty(parsed.parsed?.choices?.[0]?.message?.content, DEFAULT_REPLY);
-    return text.slice(0, 150);
+    return text.slice(0, replyLimit);
   } catch (error) {
     console.log("OPENAI_ERROR", String(error));
     return DEFAULT_REPLY;
@@ -236,6 +242,8 @@ function resolveOutboundConfig(client, env) {
   const token = firstNonEmpty(client?.zproToken, env.ZPRO_API_TOKEN, env.ZPRO_TOKEN);
   const openaiKey = firstNonEmpty(client?.openaiKey, env.OPENAI_API_KEY, env.OPENAI_KEY);
   const externalKey = firstNonEmpty(client?.zproExternalKey, env.ZPRO_EXTERNAL_KEY, "mackflow-bridge");
+  const systemPrompt = String(client?.aiSystemPrompt || "").trim();
+  const maxReplyChars = Number(client?.aiMaxReplyChars) || 0;
 
   return {
     baseUrl: baseUrl.replace(/\/+$/, ""),
@@ -243,6 +251,8 @@ function resolveOutboundConfig(client, env) {
     token,
     openaiKey,
     externalKey,
+    systemPrompt,
+    maxReplyChars,
   };
 }
 
@@ -353,7 +363,12 @@ export async function handleWebhook(request, env) {
   }
 
   const outboundConfig = resolveOutboundConfig(foundClient.config, env);
-  const replyText = await generateAIReply(incoming.text, outboundConfig.openaiKey);
+  const replyText = await generateAIReply(
+    incoming.text,
+    outboundConfig.openaiKey,
+    outboundConfig.systemPrompt,
+    outboundConfig.maxReplyChars,
+  );
 
   const outbound = await sendMessageToZPRO({
     baseUrl: outboundConfig.baseUrl,
